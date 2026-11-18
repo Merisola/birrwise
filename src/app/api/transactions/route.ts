@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { suggestCategory } from '@/lib/categorization';
+import { createTransactionRecord, TransactionInputError, NotFoundError } from '@/lib/transactions';
 import { parsePeriodToBounds } from '@/lib/dates';
 import { Period } from '@/types';
 
@@ -126,124 +126,18 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    let {
-      date,
-      time,
-      account,
-      accountId,
-      toAccount,
-      toAccountId,
-      name,
-      category,
-      type,
-      amount,
-      icon,
-      note,
-      label,
-    } = body;
-
-    amount = Number(amount);
-    if (!amount || amount <= 0 || !name) {
-      return NextResponse.json(
-        { error: 'Invalid transaction details' },
-        { status: 400 }
-      );
-    }
-
-    // Resolve account ID
-    let srcAccount = null;
-    if (accountId) {
-      srcAccount = await prisma.account.findUnique({ where: { id: accountId } });
-    } else if (account) {
-      srcAccount = await prisma.account.findFirst({
-        where: { OR: [{ short: account }, { name: account }, { id: account }] },
-      });
-    }
-
-    if (!srcAccount) {
-      srcAccount = await prisma.account.findFirst({ where: { short: 'Cash' } });
-    }
-
-    if (!srcAccount) {
-      return NextResponse.json(
-        { error: 'Source account not found' },
-        { status: 400 }
-      );
-    }
-
-    // Resolve destination account for transfer
-    let dstAccount = null;
-    if (type === 'transfer') {
-      if (toAccountId) {
-        dstAccount = await prisma.account.findUnique({ where: { id: toAccountId } });
-      } else if (toAccount) {
-        dstAccount = await prisma.account.findFirst({
-          where: { OR: [{ short: toAccount }, { name: toAccount }, { id: toAccount }] },
-        });
-      }
-    }
-
-    // Auto-categorize if expense and uncategorized
-    if (type === 'expense' && (!category || category === 'Uncategorized')) {
-      const rules = await prisma.rule.findMany();
-      category = suggestCategory(name, rules) || 'Uncategorized';
-    } else if (!category) {
-      category = type === 'income' ? 'Income' : type === 'transfer' ? 'Internal transfer' : 'Uncategorized';
-    }
-
-    const txDate = date ? new Date(`${date.slice(0, 10)}T12:00:00Z`) : new Date();
-
-    const created = await prisma.$transaction(async (tx) => {
-      // Adjust source balance
-      if (type === 'expense') {
-        await tx.account.update({
-          where: { id: srcAccount.id },
-          data: { balance: { decrement: amount } },
-        });
-      } else if (type === 'income') {
-        await tx.account.update({
-          where: { id: srcAccount.id },
-          data: { balance: { increment: amount } },
-        });
-      } else if (type === 'transfer') {
-        await tx.account.update({
-          where: { id: srcAccount.id },
-          data: { balance: { decrement: amount } },
-        });
-        if (dstAccount) {
-          await tx.account.update({
-            where: { id: dstAccount.id },
-            data: { balance: { increment: amount } },
-          });
-        }
-      }
-
-      return tx.transaction.create({
-        data: {
-          date: txDate,
-          time: time || '12:00 PM',
-          accountId: srcAccount.id,
-          toAccountId: dstAccount?.id || null,
-          name,
-          category,
-          type: type || 'expense',
-          amount,
-          icon: icon || (type === 'income' ? '↗' : type === 'transfer' ? '⇄' : '🛍'),
-          note: note || '',
-          label: label ? String(label).trim().slice(0, 140) : null,
-        },
-        include: {
-          account: true,
-          toAccount: true,
-        },
-      });
-    });
-
+    const created = await createTransactionRecord(body);
     return NextResponse.json({
       ...created,
       date: created.date.toISOString().slice(0, 10),
     });
   } catch (error) {
+    if (error instanceof TransactionInputError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+    if (error instanceof NotFoundError) {
+      return NextResponse.json({ error: error.message }, { status: 404 });
+    }
     console.error('Error creating transaction:', error);
     return NextResponse.json(
       { error: 'Failed to create transaction' },

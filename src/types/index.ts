@@ -77,6 +77,9 @@ export interface Settings {
   budget80: boolean;
   budget100: boolean;
   review: boolean;
+  mcpEnabled?: boolean;
+  hasMcpKey?: boolean;
+  mcpKeyPreview?: string | null;
 }
 
 export type Period = 'today' | 'week' | 'month' | 'year' | 'all' | 'custom';

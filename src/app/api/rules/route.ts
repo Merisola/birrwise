@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { createRuleWithBackfill } from '@/lib/rules';
 
 export async function GET() {
   try {
@@ -28,32 +29,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const keyUpper = keyword.trim().toUpperCase();
-
-    const rule = await prisma.rule.upsert({
-      where: { keyword: keyUpper },
-      update: { category },
-      create: { keyword: keyUpper, category },
-    });
-
-    // Update matching uncategorized transactions
-    const matching = await prisma.transaction.findMany({
-      where: {
-        category: 'Uncategorized',
-        type: 'expense',
-      },
-    });
-
-    let updatedCount = 0;
-    for (const t of matching) {
-      if (t.name.toUpperCase().includes(keyUpper)) {
-        await prisma.transaction.update({
-          where: { id: t.id },
-          data: { category },
-        });
-        updatedCount++;
-      }
-    }
+    const { rule, updatedCount } = await createRuleWithBackfill(keyword, category);
 
     return NextResponse.json({ rule, updatedCount });
   } catch (error) {

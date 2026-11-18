@@ -13,7 +13,7 @@ import {
  */
 export const config = {
   matcher: [
-    '/((?!api/webhooks/sms|_next/static|_next/image|favicon.ico).*)',
+    '/((?!api/webhooks/sms|api/mcp|_next/static|_next/image|favicon.ico).*)',
   ],
 };
 

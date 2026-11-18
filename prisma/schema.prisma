@@ -79,3 +79,15 @@ model Setting {
   value     String
   updatedAt DateTime @updatedAt
 }
+
+// Staged operations for the MCP endpoint (2-level confirmation).
+// A pending action is single-use and expires 10 minutes after staging.
+model PendingAction {
+  id         String    @id @default(cuid())
+  kind       String // txn.create | txn.update | txn.delete | txn.setLabel | budget.delete | category.delete | rule.delete
+  payload    String // JSON of the exact operation to execute
+  tokenHash  String    @unique // sha256 of the confirmation token (raw token is never stored)
+  expiresAt  DateTime
+  createdAt  DateTime  @default(now())
+  consumedAt DateTime?
+}

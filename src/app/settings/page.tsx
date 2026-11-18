@@ -5,6 +5,7 @@ import { useSettings } from '@/hooks/useSettings';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useUIState } from '@/context/UIContext';
 import { GeneralSettings } from '@/components/settings/GeneralSettings';
+import { McpAccess } from '@/components/settings/McpAccess';
 import { NotificationSettings } from '@/components/settings/NotificationSettings';
 import { PrivacySettings } from '@/components/settings/PrivacySettings';
 import { DataTools } from '@/components/settings/DataTools';
@@ -12,7 +13,7 @@ import { Settings } from '@/types';
 import { ReloadButton } from '@/components/layout/ReloadButton';
 
 export default function SettingsPage() {
-  const { settings, save: saveSettings } = useSettings();
+  const { settings, save: saveSettings, refetch } = useSettings();
   const { transactions } = useTransactions({ period: 'all' });
   const { showToast } = useUIState();
 
@@ -72,6 +73,7 @@ export default function SettingsPage() {
 
       <div className="management-grid">
         <GeneralSettings settings={formData} onChange={handleChange} />
+        <McpAccess settings={formData} refetch={refetch} />
         <NotificationSettings settings={formData} onChange={handleChange} />
         <PrivacySettings />
         <DataTools

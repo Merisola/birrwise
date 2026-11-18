@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import {
+  updateTransactionRecord,
+  deleteTransactionRecord,
+  TransactionInputError,
+  NotFoundError,
+} from '@/lib/transactions';
 
 export async function PATCH(
   request: NextRequest,
@@ -9,35 +14,16 @@ export async function PATCH(
     const { id } = params;
     const body = await request.json();
 
-    const existing = await prisma.transaction.findUnique({
-      where: { id },
-      include: { account: true, toAccount: true },
-    });
-
-    if (!existing) {
-      return NextResponse.json(
-        { error: 'Transaction not found' },
-        { status: 404 }
-      );
-    }
-
-    const updated = await prisma.transaction.update({
-      where: { id },
-      data: {
-        ...(body.category ? { category: body.category } : {}),
-        ...(body.note !== undefined ? { note: body.note } : {}),
-        ...(body.label !== undefined
-          ? { label: body.label ? String(body.label).trim().slice(0, 140) : null }
-          : {}),
-        ...(body.name ? { name: body.name } : {}),
-        ...(body.amount ? { amount: Number(body.amount) } : {}),
-        ...(body.time ? { time: body.time } : {}),
-        ...(body.icon ? { icon: body.icon } : {}),
-      },
-      include: {
-        account: true,
-        toAccount: true,
-      },
+    // Web API surface is intentionally narrower than the internal lib:
+    // date/type/account edits are not exposed here.
+    const updated = await updateTransactionRecord(id, {
+      ...(body.category ? { category: body.category } : {}),
+      ...(body.note !== undefined ? { note: body.note } : {}),
+      ...(body.label !== undefined ? { label: body.label } : {}),
+      ...(body.name ? { name: body.name } : {}),
+      ...(body.amount ? { amount: Number(body.amount) } : {}),
+      ...(body.time ? { time: body.time } : {}),
+      ...(body.icon ? { icon: body.icon } : {}),
     });
 
     return NextResponse.json({
@@ -45,6 +31,12 @@ export async function PATCH(
       date: updated.date.toISOString().slice(0, 10),
     });
   } catch (error) {
+    if (error instanceof TransactionInputError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+    if (error instanceof NotFoundError) {
+      return NextResponse.json({ error: error.message }, { status: 404 });
+    }
     console.error('Error updating transaction:', error);
     return NextResponse.json(
       { error: 'Failed to update transaction' },
@@ -59,50 +51,12 @@ export async function DELETE(
 ) {
   try {
     const { id } = params;
-
-    const existing = await prisma.transaction.findUnique({
-      where: { id },
-    });
-
-    if (!existing) {
-      return NextResponse.json(
-        { error: 'Transaction not found' },
-        { status: 404 }
-      );
-    }
-
-    await prisma.$transaction(async (tx) => {
-      // Reverse balance effect
-      if (existing.type === 'expense') {
-        await tx.account.update({
-          where: { id: existing.accountId },
-          data: { balance: { increment: existing.amount } },
-        });
-      } else if (existing.type === 'income') {
-        await tx.account.update({
-          where: { id: existing.accountId },
-          data: { balance: { decrement: existing.amount } },
-        });
-      } else if (existing.type === 'transfer') {
-        await tx.account.update({
-          where: { id: existing.accountId },
-          data: { balance: { increment: existing.amount } },
-        });
-        if (existing.toAccountId) {
-          await tx.account.update({
-            where: { id: existing.toAccountId },
-            data: { balance: { decrement: existing.amount } },
-          });
-        }
-      }
-
-      await tx.transaction.delete({
-        where: { id },
-      });
-    });
-
+    await deleteTransactionRecord(id);
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof NotFoundError) {
+      return NextResponse.json({ error: error.message }, { status: 404 });
+    }
     console.error('Error deleting transaction:', error);
     return NextResponse.json(
       { error: 'Failed to delete transaction' },
