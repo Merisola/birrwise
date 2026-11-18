@@ -1,7 +1,7 @@
 import { getMcpState, keyMatches } from './access';
 import { MCP_TOOLS, publicToolList } from './tools';
 
-const SUPPORTED_PROTOCOL_VERSIONS = ['2025-06-18', '2025-03-26', '2024-11-05'];
+const SUPPORTED_PROTOCOL_VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
 const SERVER_INFO = { name: 'birrwise-mcp', version: '1.0.0' };
 const INSTRUCTIONS = [
   'Birrwise is a personal finance ledger.',
