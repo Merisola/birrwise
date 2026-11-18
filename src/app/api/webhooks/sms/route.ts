@@ -377,7 +377,9 @@ export async function POST(request: NextRequest) {
 
   // --- Create transaction + adjust balance atomically ---
   const accountId = account.id;
-  const delta = type === 'income' ? amount : -amount;
+  const isIncomingTransfer =
+    type === 'transfer' && parsed.transferDirection === 'in';
+  const delta = type === 'income' || isIncomingTransfer ? amount : -amount;
   // When the SMS states an available balance (e.g. Bank of Abyssinia), set the
   // account balance absolutely instead of incrementing — it self-corrects any
   // earlier drift. Last write wins for concurrent balance-bearing SMS.

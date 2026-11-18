@@ -20,6 +20,7 @@ export interface ImportRow {
   source: ImportFileType;
   rowNumber: number;      // original row number for error reporting
   availableBalance?: number;  // set when the SMS states the balance (e.g. BOA)
+  transferDirection?: 'in' | 'out';  // only for type 'transfer': which way money moved
 }
 
 export interface ImportPreviewResult {
@@ -230,9 +231,10 @@ export function parseSMSBody(
       time,
       name: source,
       amount,
-      type: 'income',
+      // Your own money moving between your own accounts — a transfer, not income.
+      type: 'transfer',
+      transferDirection: 'in',
       account: 'Telebirr',
-      // These pulls are your own money moving between your own accounts.
       category: 'Internal transfer',
       note,
       availableBalance,

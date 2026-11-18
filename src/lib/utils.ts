@@ -109,9 +109,16 @@ export const rawSMS = (t: {
     return 'Manual entry. Cash purchases have no SMS.';
   }
   if (acct === 'Telebirr') {
-    return t.type === 'income'
-      ? `You have received ETB ${a} from ${t.name} on ${d} ${t.time || ''}.`
-      : `You have paid ETB ${a} to ${t.name} on ${d} ${t.time || ''}.`;
+    if (t.type === 'income') {
+      return `You have received ETB ${a} from ${t.name} on ${d} ${t.time || ''}.`;
+    }
+    if (t.type === 'transfer') {
+      return `You have received ETB ${a} by transaction number ${t.name} on ${d} ${t.time || ''}.`;
+    }
+    return `You have paid ETB ${a} to ${t.name} on ${d} ${t.time || ''}.`;
+  }
+  if (t.type === 'transfer') {
+    return `Internal transfer of ETB ${a} on ${d} ${t.time || ''}.`;
   }
   return `Your account has been ${
     t.type === 'income' ? 'credited' : 'debited'
