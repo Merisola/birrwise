@@ -26,6 +26,7 @@ export interface Transaction {
   amount: number;
   icon: string;
   note?: string | null;
+  label?: string | null; // user's own annotation, separate from the system note
   fresh?: boolean;
   createdAt?: string;
   updatedAt?: string;
@@ -109,6 +110,7 @@ export interface CreateTransactionInput {
   amount: number;
   icon?: string;
   note?: string;
+  label?: string;
   toAccount?: string; // short name or id
 }
 

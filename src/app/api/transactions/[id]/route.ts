@@ -26,6 +26,9 @@ export async function PATCH(
       data: {
         ...(body.category ? { category: body.category } : {}),
         ...(body.note !== undefined ? { note: body.note } : {}),
+        ...(body.label !== undefined
+          ? { label: body.label ? String(body.label).trim().slice(0, 140) : null }
+          : {}),
         ...(body.name ? { name: body.name } : {}),
         ...(body.amount ? { amount: Number(body.amount) } : {}),
         ...(body.time ? { time: body.time } : {}),

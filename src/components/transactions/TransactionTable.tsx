@@ -75,7 +75,14 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
                     <div className="merchant-icon">{t.icon || '•'}</div>
                     <div>
                       <div className="merchant-cell">{t.name}</div>
-                      <div className="muted-cell">{t.note || ''}</div>
+                      <div className="muted-cell">
+                        {t.note || ''}
+                        {t.label && (
+                          <span className="tx-label" title={`Your label: ${t.label}`}>
+                            🏷 {t.label}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </td>

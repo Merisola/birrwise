@@ -36,6 +36,7 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     delete: deleteTransaction,
     setCategory,
     createRuleFromTransaction,
+    setLabel,
   } = useTransactions({ period: 'all' });
   const { accounts, create: createAccount } = useAccounts();
   const {
@@ -80,6 +81,7 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         categories={categories}
         onSetCategory={setCategory}
         onCreateRule={createRuleFromTransaction}
+        onSetLabel={setLabel}
       />
       <Toast />
     </div>

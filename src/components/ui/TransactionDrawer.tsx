@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useUIState } from '@/context/UIContext';
 import { Transaction, Category } from '@/types';
 import { fmt, fdate, rawSMS } from '@/lib/utils';
@@ -11,6 +11,7 @@ interface TransactionDrawerProps {
   categories: Category[];
   onSetCategory: (id: string, category: string) => Promise<void>;
   onCreateRule: (id: string, category: string) => Promise<void>;
+  onSetLabel: (id: string, label: string | null) => Promise<void>;
 }
 
 export const TransactionDrawer: React.FC<TransactionDrawerProps> = ({
@@ -18,11 +19,20 @@ export const TransactionDrawer: React.FC<TransactionDrawerProps> = ({
   categories,
   onSetCategory,
   onCreateRule,
+  onSetLabel,
 }) => {
   const { drawerOpen, closeDrawer, drawerTransactionId, showToast } =
     useUIState();
 
   const transaction = transactions.find((t) => t.id === drawerTransactionId);
+
+  const txId = transaction?.id ?? '';
+  const txLabel = transaction?.label ?? '';
+  const [labelDraft, setLabelDraft] = useState(txLabel);
+
+  useEffect(() => {
+    setLabelDraft(txLabel);
+  }, [txId, txLabel]);
 
   if (!transaction) {
     return (
@@ -100,6 +110,31 @@ export const TransactionDrawer: React.FC<TransactionDrawerProps> = ({
     }
   };
 
+  const handleLabelSave = async (draft: string = labelDraft) => {
+    const trimmed = draft.trim();
+    const current = (transaction.label ?? '').trim();
+    if (trimmed === current) {
+      return; // silent no-op (blur fires when switching to chips etc.)
+    }
+    try {
+      await onSetLabel(transaction.id, trimmed || null);
+      showToast(trimmed ? `🏷 ${trimmed}` : 'Label cleared.', [
+        {
+          label: 'Undo',
+          onClick: () => onSetLabel(transaction.id, current || null),
+        },
+      ]);
+    } catch {
+      setLabelDraft(current);
+      showToast('Failed to save label');
+    }
+  };
+
+  const handleLabelClear = async () => {
+    setLabelDraft('');
+    await handleLabelSave('');
+  };
+
   return (
     <>
       <div
@@ -137,6 +172,40 @@ export const TransactionDrawer: React.FC<TransactionDrawerProps> = ({
             {transaction.name}
           </h3>
           <div className="subtle">{transaction.note || ''}</div>
+
+          <div className="drawer-label">
+            <div className="settings-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+              <span>🏷 YOUR LABEL</span>
+              <span className="drawer-label-hint">optional · Enter ↵ saves · Esc reverts</span>
+            </div>
+            <div className="drawer-label-row">
+              <input
+                className="drawer-label-input"
+                value={labelDraft}
+                maxLength={140}
+                placeholder="e.g. for Joe & Beti"
+                aria-label="Your label"
+                onChange={(e) => setLabelDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleLabelSave();
+                  if (e.key === 'Escape') setLabelDraft(transaction.label ?? '');
+                }}
+                onBlur={() => handleLabelSave()}
+              />
+              {transaction.label && (
+                <button
+                  type="button"
+                  className="small-action danger"
+                  onMouseDown={(e) => e.preventDefault()} // keep input focus so blur-save doesn't fire first
+                  onClick={handleLabelClear}
+                  title="Clear label"
+                  aria-label="Clear label"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          </div>
 
           <div className={`drawer-amt ${amountColor}`}>
             {sign}

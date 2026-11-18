@@ -38,6 +38,7 @@ model Transaction {
   amount      Float
   icon        String
   note        String?
+  label       String? // user's own annotation, separate from the system note
   fingerprint String?  @unique
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

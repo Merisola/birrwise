@@ -19,6 +19,7 @@ interface CashModalProps {
     amount: number;
     icon: string;
     note: string;
+    label?: string;
   }) => Promise<{ id: string } | undefined>;
   onUndo?: (id: string) => Promise<void>;
   cashAccount?: Account;
@@ -40,6 +41,7 @@ export const CashModal: React.FC<CashModalProps> = ({
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('Food & groceries');
+  const [label, setLabel] = useState('');
   const [date, setDate] = useState(() => todayISO());
 
   useEffect(() => {
@@ -81,11 +83,13 @@ export const CashModal: React.FC<CashModalProps> = ({
         amount: numAmount,
         icon: '💵',
         note: 'Cash purchase',
+        ...(label.trim() ? { label: label.trim() } : {}),
       });
 
       closeCashModal();
       setAmount('');
       setDescription('');
+      setLabel('');
 
       if (saved && onUndo) {
         showToast('Cash expense saved.', [
@@ -170,6 +174,16 @@ export const CashModal: React.FC<CashModalProps> = ({
               </div>
             ))}
           </div>
+        </div>
+
+        <div className="field">
+          <label>LABEL (OPTIONAL)</label>
+          <input
+            placeholder="e.g. for Joe & Beti"
+            value={label}
+            maxLength={140}
+            onChange={(e) => setLabel(e.target.value)}
+          />
         </div>
 
         <div className="field">

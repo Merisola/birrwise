@@ -1357,3 +1357,11 @@ body.masked .sens { filter: blur(9px); }
 .chip-groups { display: flex; flex-direction: column; gap: 10px; }
 .chip-group { display: flex; flex-direction: column; gap: 6px; }
 .chip-group-label { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+
+/* ?? Personal label */
+.tx-label { display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; font-size: 10px; font-weight: 600; color: #5b4bd6; background: #efebfd; border-radius: 6px; padding: 1px 6px; white-space: nowrap; }
+.drawer-label { margin-top: 14px; }
+.drawer-label-row { display: flex; gap: 6px; align-items: center; margin-top: 6px; }
+.drawer-label-input { flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px; font-size: 12.5px; background: #fbfbfe; outline: none; }
+.drawer-label-input:focus { border-color: #b9aef5; background: #fff; box-shadow: 0 0 0 3px #ece9fc; }
+.drawer-label-hint { font-size: 10px; font-weight: 400; color: var(--muted); text-transform: none; letter-spacing: 0; }

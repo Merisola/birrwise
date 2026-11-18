@@ -104,6 +104,16 @@ export function useTransactions(filters?: Partial<TransactionFilters>) {
     fetchTransactions();
   };
 
+  const setLabel = async (id: string, label: string | null): Promise<void> => {
+    const res = await fetch(`/api/transactions/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label: label ?? '' }),
+    });
+    if (!res.ok) throw new Error('Failed to update label');
+    fetchTransactions();
+  };
+
   const createRuleFromTransaction = async (
     id: string,
     category: string
@@ -122,5 +132,6 @@ export function useTransactions(filters?: Partial<TransactionFilters>) {
     delete: remove,
     setCategory,
     createRuleFromTransaction,
+    setLabel,
   };
 }

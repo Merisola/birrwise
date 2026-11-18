@@ -122,7 +122,7 @@ function generateCSV(headers: string[], rows: string[][]): string {
 }
 
 export function generateTransactionsCSV(transactions: Transaction[]): string {
-  const headers = ['date', 'description', 'amount', 'account', 'category', 'type', 'time', 'note'];
+  const headers = ['date', 'description', 'amount', 'account', 'category', 'type', 'time', 'note', 'label'];
   const rows = transactions.map((t) => {
     const acct =
       typeof t.account === 'string'
@@ -141,6 +141,7 @@ export function generateTransactionsCSV(transactions: Transaction[]): string {
       t.type,
       t.time || '',
       t.note || '',
+      t.label || '',
     ];
   });
 

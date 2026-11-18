@@ -84,6 +84,7 @@ export async function GET(request: NextRequest) {
       const searchTerms = [
         t.name,
         t.note || '',
+        t.label || '',
         t.account.name,
         t.account.short,
         t.category,
@@ -138,6 +139,7 @@ export async function POST(request: NextRequest) {
       amount,
       icon,
       note,
+      label,
     } = body;
 
     amount = Number(amount);
@@ -228,6 +230,7 @@ export async function POST(request: NextRequest) {
           amount,
           icon: icon || (type === 'income' ? '↗' : type === 'transfer' ? '⇄' : '🛍'),
           note: note || '',
+          label: label ? String(label).trim().slice(0, 140) : null,
         },
         include: {
           account: true,

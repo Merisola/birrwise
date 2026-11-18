@@ -81,6 +81,11 @@ export const TransactionList: React.FC<TransactionListProps> = ({
                   <div className="tx-name">{t.name}</div>
                   <div className="tx-meta">
                     {acct} · {fdate(t)}
+                    {t.label && (
+                      <span className="tx-label" title={`Your label: ${t.label}`}>
+                        🏷 {t.label}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <span className="category-pill" title={categoryLabel(t)}>
