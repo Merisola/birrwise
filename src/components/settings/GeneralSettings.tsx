@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Settings } from '@/types';
+import { useSignOut } from '@/hooks/useSignOut';
 
 interface GeneralSettingsProps {
   settings: Settings;
@@ -12,6 +13,8 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
   settings,
   onChange,
 }) => {
+  const { signOut, signingOut } = useSignOut();
+
   return (
     <div className="manage-card">
       <h3>General</h3>
@@ -61,6 +64,18 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
           <option value="MM/DD/YYYY">MM/DD/YYYY</option>
           <option value="YYYY-MM-DD">YYYY-MM-DD</option>
         </select>
+      </div>
+
+      <div className="field">
+        <label>SESSION</label>
+        <button
+          type="button"
+          className="secondary-btn"
+          onClick={signOut}
+          disabled={signingOut}
+        >
+          {signingOut ? 'Signing out…' : 'Sign out of Birrwise'}
+        </button>
       </div>
     </div>
   );

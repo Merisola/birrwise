@@ -3,6 +3,7 @@
 import React from 'react';
 import { useUIState } from '@/context/UIContext';
 import { PageName } from '@/types';
+import { useSignOut } from '@/hooks/useSignOut';
 
 interface SidebarProps {
   reviewCount?: number;
@@ -10,6 +11,7 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ reviewCount = 0 }) => {
   const { currentPage, setPage } = useUIState();
+  const { signOut, signingOut } = useSignOut();
 
   const navItems: { page: PageName; icon: string; count?: number }[] = [
     { page: 'Overview', icon: '◫' },
@@ -70,6 +72,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ reviewCount = 0 }) => {
             <strong>My workspace</strong>
             <small>Personal account</small>
           </div>
+          <button
+            className="signout-btn"
+            onClick={signOut}
+            disabled={signingOut}
+            title="Sign out"
+            aria-label="Sign out"
+          >
+            {signingOut ? '…' : '⏻'}
+          </button>
         </div>
       </div>
     </aside>

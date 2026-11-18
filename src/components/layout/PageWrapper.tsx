@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { usePathname } from 'next/navigation';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { MobileNav } from './MobileNav';
@@ -17,6 +18,17 @@ import { useUIState } from '@/context/UIContext';
 export const PageWrapper: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
+  const pathname = usePathname();
+
+  // The login page is standalone: no app shell and no data hooks.
+  if (pathname === '/login') {
+    return <>{children}</>;
+  }
+
+  return <AppShell>{children}</AppShell>;
+};
+
+const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentMonth } = useUIState();
   const {
     transactions,

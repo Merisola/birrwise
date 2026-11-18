@@ -8,7 +8,8 @@ A Next.js finance dashboard for tracking budgets, accounts, categories, and tran
 - Transactions, accounts, categories, and rules management
 - CSV import / export
 - SMS webhook (`POST /api/webhooks/sms`) that parses bank alerts and records transactions
-- Basic Auth for the dashboard and API; the SMS webhook uses its own `X-API-Key`
+- Sign-in page for the dashboard and API (`/login`) backed by a signed
+  session cookie; the SMS webhook uses its own `X-API-Key`
 
 ## Tech stack
 
@@ -33,8 +34,9 @@ npm run dev
 To verify a production build locally, use `npm run build:local` (the deployed
 `npm run build` targets PostgreSQL and runs `prisma db push`).
 
-If `APP_USERNAME` and `APP_PASSWORD` are unset in local development, Basic Auth
-is disabled. Set both in `.env` to test the login prompt locally.
+If `APP_USERNAME`, `APP_PASSWORD` and `SESSION_SECRET` are unset in local
+development, authentication is disabled. Set all three in `.env` to test the
+login page locally.
 
 ## Deploy to Vercel
 
@@ -46,9 +48,11 @@ so pushes to `main` deploy automatically.
    uses `DATABASE_URL`; if the project also provides `DATABASE_URL_UNPOOLED`
    and you add `directUrl` to `prisma/schema.prisma`, point it there.
 2. Set these Vercel environment variables **before** deploying the version that
-   enables Basic Auth:
+   enables the login page:
    - `SMS_WEBHOOK_API_KEY` — the same key used by MacroDroid
    - `APP_USERNAME` and `APP_PASSWORD` — dashboard/API login
+   - `SESSION_SECRET` — signs the session cookie. Generate with
+     `node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"`
    - Leave `ALLOW_SETTINGS_RESET` unset. It only enables the destructive demo
      reset endpoint when set to `true`.
 3. Keep the build command as `prisma generate && prisma db push && next build`.
@@ -66,5 +70,5 @@ so pushes to `main` deploy automatically.
 6. Point MacroDroid at `https://birrwise-ten.vercel.app/api/webhooks/sms` with
    the existing `X-API-Key` header.
 
-The webhook is excluded from Basic Auth and still requires `X-API-Key`. Never
+The webhook is excluded from login auth and still requires `X-API-Key`. Never
 commit `.env` or production credentials.
