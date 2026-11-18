@@ -325,7 +325,10 @@ export async function POST(request: NextRequest) {
   if (type === 'expense' && (category === 'Uncategorized' || !category)) {
     category = suggestCategory(parsed.name || '', rules) || 'Uncategorized';
   } else if (type === 'income') {
-    category = 'Income';
+    // Keep parser-assigned categories for these pulls (e.g. 'Internal transfer')
+    if (category === 'Uncategorized' || !category) {
+      category = 'Income';
+    }
   } else if (type === 'transfer') {
     category = 'Internal transfer';
   }

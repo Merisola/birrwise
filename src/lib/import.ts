@@ -198,8 +198,49 @@ export function parseSMSBody(
   // Telebirr patterns
   // "You have paid ETB 70.00 to Ride payment on 16/11/2026 08:15 AM."
   // "You have received ETB 85.00 from Tomoca Coffee on 16/11/2026 10:42 AM."
-  const telebirrPaid = /You have paid ETB\s*([\d,]+\.?\d*)\s+to\s+([^.]+)\s+on\s+([^.]+)\./i.exec(text);
-  const telebirrReceived = /You have received ETB\s*([\d,]+\.?\d*)\s+from\s+([^.]+)\s+on\s+([^.]+)\./i.exec(text);
+  // "You have received ETB 5.00 by transaction number DKI3C9GR1N on
+  //  2026-11-18 12:46:02 from Bank of Abyssinia to your telebirr Account
+  //  251966125639 - … Your current balance is ETB 4,121.57."
+  // Whitespace runs vary between messages — tolerate them everywhere.
+  // Bank-to-telebirr pulls carry a transaction number and current balance.
+  const telebirrBankPull =
+    /You have received\s+ETB\s*([\d,]+\.?\d*)\s+by\s+transaction\s+number\s+([A-Z0-9]+)\s+on\s+(\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/\d{4})\s+(\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm)?)\s+from\s+(.+?)\s+to\s+your\s+telebirr\s+Account/i.exec(text);
+
+  if (telebirrBankPull) {
+    const amount = Number(telebirrBankPull[1].replace(/,/g, ''));
+    const trx = telebirrBankPull[2].trim();
+    const date = normalizeDate(telebirrBankPull[3].trim(), dateFormat) || fallbackDate;
+    const time = normalizeTime(telebirrBankPull[4].trim());
+    const source = telebirrBankPull[5].trim();
+    const balanceMatch = /current balance is\s+ETB\s*([\d,]+\.?\d*)/i.exec(text);
+    const availableBalance = balanceMatch
+      ? Number(balanceMatch[1].replace(/,/g, ''))
+      : undefined;
+    const note = [
+      `trx ${trx} (from ${source})`,
+      availableBalance !== undefined
+        ? `Available balance ETB ${availableBalance.toFixed(2)}`
+        : undefined,
+    ]
+      .filter(Boolean)
+      .join(' · ');
+
+    return {
+      date: date || fallbackDate,
+      time,
+      name: source,
+      amount,
+      type: 'income',
+      account: 'Telebirr',
+      // These pulls are your own money moving between your own accounts.
+      category: 'Internal transfer',
+      note,
+      availableBalance,
+    };
+  }
+
+  const telebirrPaid = /You have paid\s+ETB\s*([\d,]+\.?\d*)\s+to\s+([^.]+)\s+on\s+([^.]+)\./i.exec(text);
+  const telebirrReceived = /You have received\s+ETB\s*([\d,]+\.?\d*)\s+from\s+([^.]+)\s+on\s+([^.]+)\./i.exec(text);
 
   if (telebirrPaid) {
     const amount = Number(telebirrPaid[1].replace(/,/g, ''));
@@ -244,7 +285,7 @@ export function parseSMSBody(
   // Record the total outflow (transfer + fee + VAT) as one expense so the
   // account balance matches the SMS; keep the breakdown in the note.
   const telebirrTransferred =
-    /You have transferred ETB\s*([\d,]+\.?\d*)\s+to\s+([^(]+?)\s*(?:\(([^)]*)\))?\s+on\s+([^.]+)\./i.exec(text);
+    /You have transferred\s+ETB\s*([\d,]+\.?\d*)\s+to\s+([^(]+?)\s*(?:\(([^)]*)\))?\s+on\s+([^.]+)\./i.exec(text);
 
   if (telebirrTransferred) {
     const transferAmount = Number(telebirrTransferred[1].replace(/,/g, ''));
