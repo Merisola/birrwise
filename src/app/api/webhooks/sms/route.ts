@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { timingSafeEqual } from 'node:crypto';
+import { createHash, timingSafeEqual } from 'node:crypto';
 import { prisma } from '@/lib/prisma';
 import { suggestCategory } from '@/lib/categorization';
 import {
@@ -24,6 +24,22 @@ function safeEqual(a: string, b: string): boolean {
   const bb = Buffer.from(b, 'utf8');
   if (ba.length !== bb.length) return false;
   return timingSafeEqual(ba, bb);
+}
+
+function isUniqueConstraintError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: unknown }).code === 'P2002'
+  );
+}
+
+function duplicateResponse() {
+  return NextResponse.json(
+    { ok: true, duplicate: true, message: 'Matching transaction already exists; not duplicated.' },
+    { status: 200 }
+  );
 }
 
 /**
@@ -319,8 +335,24 @@ export async function POST(request: NextRequest) {
   const amount = Math.abs(parsed.amount ?? 0);
   const name = parsed.name || 'SMS transaction';
 
-  // --- Idempotency: fingerprint of the existing data ---
-  const fingerprint = `${parsed.date}|${timeStr}|${name.toLowerCase().trim()}|${amount.toFixed(2)}|${account.id.toLowerCase()}|${type}`;
+  // --- Idempotency ---
+  // Exact fingerprint of the SMS: protects against MacroDroid retries and
+  // concurrent duplicate deliveries. The unique index makes the insert atomic.
+  const fingerprint = createHash('sha256')
+    .update(`${payload.sender}\n${payload.message}`)
+    .digest('hex');
+
+  const exactDuplicate = await prisma.transaction.findUnique({
+    where: { fingerprint },
+    select: { id: true },
+  });
+  if (exactDuplicate) {
+    return duplicateResponse();
+  }
+
+  // Secondary semantic check for older transactions that predate fingerprints,
+  // or for a retry whose body whitespace changed.
+  const semanticFingerprint = `${parsed.date}|${timeStr}|${name.toLowerCase().trim()}|${amount.toFixed(2)}|${account.id.toLowerCase()}|${type}`;
   const existing = await prisma.transaction.findMany({
     where: {
       date: dateObj,
@@ -333,49 +365,61 @@ export async function POST(request: NextRequest) {
 
   const duplicate = existing.some(
     (t) =>
-      `${t.date.toISOString().slice(0, 10)}|${t.time}|${t.name.toLowerCase().trim()}|${t.amount.toFixed(2)}|${t.accountId.toLowerCase()}|${t.type}` === fingerprint
+      `${t.date.toISOString().slice(0, 10)}|${t.time}|${t.name.toLowerCase().trim()}|${t.amount.toFixed(2)}|${t.accountId.toLowerCase()}|${t.type}` === semanticFingerprint
   );
 
   if (duplicate) {
-    return NextResponse.json(
-      { ok: true, duplicate: true, message: 'Matching transaction already exists; not duplicated.' },
-      { status: 200 }
-    );
+    return duplicateResponse();
   }
 
   // --- Create transaction + adjust balance atomically ---
   const accountId = account.id;
   const delta = type === 'income' ? amount : -amount;
 
-  const created = await prisma.$transaction(async (tx) => {
-    await tx.account.update({
-      where: { id: accountId },
-      data: { balance: { increment: delta } },
+  const created = await prisma
+    .$transaction(async (tx) => {
+      await tx.account.update({
+        where: { id: accountId },
+        data: { balance: { increment: delta } },
+      });
+      return tx.transaction.create({
+        data: {
+          date: dateObj,
+          time: timeStr,
+          accountId,
+          name,
+          category,
+          type,
+          amount,
+          icon: type === 'income' ? '↗' : type === 'transfer' ? '⇄' : '📩',
+          note:
+            parsed.note && parsed.note !== 'Parsed from SMS'
+              ? `${parsed.note} · Auto-ingested from SMS webhook`
+              : 'Auto-ingested from SMS webhook',
+          fingerprint,
+        },
+        select: {
+          id: true,
+          date: true,
+          time: true,
+          name: true,
+          category: true,
+          type: true,
+          amount: true,
+          note: true,
+        },
+      });
+    })
+    .catch((error) => {
+      // A concurrent delivery inserted the same fingerprint first. The
+      // transaction (including the balance change) was rolled back.
+      if (isUniqueConstraintError(error)) return null;
+      throw error;
     });
-    return tx.transaction.create({
-      data: {
-        date: dateObj,
-        time: timeStr,
-        accountId,
-        name,
-        category,
-        type,
-        amount,
-        icon: type === 'income' ? '↗' : type === 'transfer' ? '⇄' : '📩',
-        note: 'Auto-ingested from SMS webhook',
-      },
-      select: {
-        id: true,
-        date: true,
-        time: true,
-        name: true,
-        category: true,
-        type: true,
-        amount: true,
-        note: true,
-      },
-    });
-  });
+
+  if (!created) {
+    return duplicateResponse();
+  }
 
   return NextResponse.json(
     {

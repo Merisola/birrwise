@@ -236,6 +236,47 @@ export function parseSMSBody(
     };
   }
 
+  // Telebirr outgoing transfer:
+  // "You have transferred ETB 5.00 to Milion Kalayu (2519****0513) on
+  //  18/11/2026 08:39:06. ... The service fee is ETB 0.87 and 15% VAT on the
+  //  service fee is ETB 0.13."
+  // Record the total outflow (transfer + fee + VAT) as one expense so the
+  // account balance matches the SMS; keep the breakdown in the note.
+  const telebirrTransferred =
+    /You have transferred ETB\s*([\d,]+\.?\d*)\s+to\s+([^(]+?)\s*(?:\(([^)]*)\))?\s+on\s+([^.]+)\./i.exec(text);
+
+  if (telebirrTransferred) {
+    const transferAmount = Number(telebirrTransferred[1].replace(/,/g, ''));
+    const name = telebirrTransferred[2].trim();
+    const phone = telebirrTransferred[3]?.trim();
+    const dateTime = telebirrTransferred[4].trim();
+    const datePart = dateTime.split(' ')[0];
+    const timePart = dateTime.split(' ').slice(1).join(' ');
+
+    const serviceFeeMatch = /The service fee is\s+ETB\s*([\d,]+\.?\d*)/i.exec(text);
+    const vatMatch = /VAT on the service fee is\s+ETB\s*([\d,]+\.?\d*)/i.exec(text);
+    const serviceFee = serviceFeeMatch ? Number(serviceFeeMatch[1].replace(/,/g, '')) : 0;
+    const vat = vatMatch ? Number(vatMatch[1].replace(/,/g, '')) : 0;
+    // Round to cents to avoid floating-point noise.
+    const amount = Math.round((transferAmount + serviceFee + vat) * 100) / 100;
+
+    const breakdown =
+      serviceFee || vat
+        ? `Transfer ETB ${transferAmount.toFixed(2)} + fee ETB ${serviceFee.toFixed(2)} + VAT ETB ${vat.toFixed(2)}`
+        : `Transfer ETB ${transferAmount.toFixed(2)}`;
+
+    return {
+      date: normalizeDate(datePart, dateFormat) || fallbackDate,
+      time: normalizeTime(timePart),
+      name,
+      amount,
+      type: 'expense',
+      account: 'Telebirr',
+      category: 'Uncategorized',
+      note: `${breakdown}${phone ? `; to ${phone}` : ''}`,
+    };
+  }
+
   // Generic bank SMS: "Your account has been debited with ETB 420.00. Ref: POS purchase. 16/11/2026 14:30 PM."
   const genericDebit = /account has been debited with ETB\s*([\d,]+\.?\d*)\.?\s*Ref:\s*([^.]+)\.\s*([^.]+)\./i.exec(text);
   const genericCredit = /account has been credited with ETB\s*([\d,]+\.?\d*)\.?\s*Ref:\s*([^.]+)\.\s*([^.]+)\./i.exec(text);

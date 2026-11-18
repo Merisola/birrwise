@@ -2,13 +2,20 @@
   "name": "birrwise",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
     "dev": "next dev",
+    "predev": "prisma generate --schema prisma/schema.sqlite.prisma",
     "build": "prisma generate && prisma db push && next build",
+    "build:local": "prisma generate --schema prisma/schema.sqlite.prisma && next build",
     "start": "next start",
     "lint": "next lint",
     "db:push": "prisma db push",
+    "db:push:local": "prisma db push --schema prisma/schema.sqlite.prisma",
     "db:seed": "tsx prisma/seed.ts",
+    "db:seed:local": "prisma generate --schema prisma/schema.sqlite.prisma && tsx prisma/seed.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {

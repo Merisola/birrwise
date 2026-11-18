@@ -2,6 +2,16 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
 export async function POST() {
+  if (
+    process.env.NODE_ENV === 'production' &&
+    process.env.ALLOW_SETTINGS_RESET !== 'true'
+  ) {
+    return NextResponse.json(
+      { error: 'The demo reset endpoint is disabled in production.' },
+      { status: 403 }
+    );
+  }
+
   try {
     await prisma.transaction.deleteMany();
     await prisma.budget.deleteMany();
