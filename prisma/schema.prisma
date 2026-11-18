@@ -1,0 +1,76 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id           String        @id @default(cuid())
+  name         String
+  short        String        @unique
+  type         String
+  balance      Float         @default(0)
+  icon         String
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  transactions Transaction[] @relation("AccountTransactions")
+  transfersIn  Transaction[] @relation("TransferTo")
+}
+
+model Transaction {
+  id          String   @id @default(cuid())
+  date        DateTime
+  time        String
+  accountId   String
+  account     Account  @relation("AccountTransactions", fields: [accountId], references: [id], onDelete: Cascade)
+  toAccountId String?
+  toAccount   Account? @relation("TransferTo", fields: [toAccountId], references: [id], onDelete: SetNull)
+  name        String
+  category    String
+  type        String   // 'income' | 'expense' | 'transfer'
+  amount      Float
+  icon        String
+  note        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([date])
+  @@index([accountId])
+  @@index([category])
+}
+
+model Budget {
+  id        String   @id @default(cuid())
+  category  String   @unique
+  icon      String
+  limit     Float
+  color     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  icon      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Rule {
+  id        String   @id @default(cuid())
+  keyword   String   @unique
+  category  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+}

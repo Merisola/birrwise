@@ -1,0 +1,52 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+
+export async function GET() {
+  try {
+    const settingsList = await prisma.setting.findMany();
+    const defaults: Record<string, any> = {
+      workspace: 'My workspace',
+      currency: 'ETB',
+      dateFormat: 'DD/MM/YYYY',
+      budget80: true,
+      budget100: true,
+      review: true,
+    };
+
+    settingsList.forEach((s) => {
+      if (s.value === 'true') defaults[s.key] = true;
+      else if (s.value === 'false') defaults[s.key] = false;
+      else defaults[s.key] = s.value;
+    });
+
+    return NextResponse.json(defaults);
+  } catch (error) {
+    console.error('Error fetching settings:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch settings' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+
+    for (const [key, val] of Object.entries(body)) {
+      await prisma.setting.upsert({
+        where: { key },
+        update: { value: String(val) },
+        create: { key, value: String(val) },
+      });
+    }
+
+    return NextResponse.json({ success: true, settings: body });
+  } catch (error) {
+    console.error('Error saving settings:', error);
+    return NextResponse.json(
+      { error: 'Failed to save settings' },
+      { status: 500 }
+    );
+  }
+}
