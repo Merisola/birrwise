@@ -19,6 +19,7 @@ export interface ImportRow {
   icon?: string;          // optional icon override
   source: ImportFileType;
   rowNumber: number;      // original row number for error reporting
+  availableBalance?: number;  // set when the SMS states the balance (e.g. BOA)
 }
 
 export interface ImportPreviewResult {
@@ -274,6 +275,51 @@ export function parseSMSBody(
       account: 'Telebirr',
       category: 'Uncategorized',
       note: `${breakdown}${phone ? `; to ${phone}` : ''}`,
+    };
+  }
+
+  // BOA (Bank of Abyssinia):
+  // "Dear Meron, your account 1*****64 was debited with ETB 17.00.
+  //  Available Balance: ETB 41,802.85. Receipt: .../slip/?trx=FT263226N81J48564 ..."
+  // No date inside the body, so the caller-provided timestamp supplies it.
+  // The SMS includes an available balance — the webhook prefers to set the
+  // account balance absolutely instead of applying an increment.
+  const boaAddressHint = /boa|abyssinia/i.test(address);
+  const boaTextHint = /bank of abyssinia|bankofabyssinia\.com/i.test(text);
+  const boaTxn = boaAddressHint || boaTextHint
+    ? /your account[^.\n]*?\bwas\s+(debited|credited)\s+with\s+ETB\s*([\d,]+\.?\d*)/i.exec(text)
+    : null;
+
+  if (boaTxn) {
+    const amount = Number(boaTxn[2].replace(/,/g, ''));
+    const isDebit = boaTxn[1].toLowerCase() === 'debited';
+    const balanceMatch = /available balance[:\s]*ETB\s*([\d,]+\.?\d*)/i.exec(text);
+    const availableBalance = balanceMatch
+      ? Number(balanceMatch[1].replace(/,/g, ''))
+      : undefined;
+    const trxMatch = /trx=([A-Z0-9]+)/i.exec(text);
+    const trx = trxMatch?.[1];
+    const note = [
+      trx ? `trx ${trx}` : undefined,
+      availableBalance !== undefined
+        ? `Available balance ETB ${availableBalance.toFixed(2)}`
+        : undefined,
+    ]
+      .filter(Boolean)
+      .join(' · ');
+
+    return {
+      date: fallbackDate,
+      // Empty string means "no time in the body" — the webhook falls back to
+      // the payload timestamp's time.
+      time: '',
+      name: isDebit ? 'BOA debit' : 'BOA credit',
+      amount,
+      type: isDebit ? 'expense' : 'income',
+      account: 'BOA',
+      category: isDebit ? 'Uncategorized' : 'Income',
+      note: note || 'Parsed from SMS',
+      availableBalance,
     };
   }
 

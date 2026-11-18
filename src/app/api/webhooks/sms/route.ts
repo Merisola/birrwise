@@ -375,12 +375,19 @@ export async function POST(request: NextRequest) {
   // --- Create transaction + adjust balance atomically ---
   const accountId = account.id;
   const delta = type === 'income' ? amount : -amount;
+  // When the SMS states an available balance (e.g. Bank of Abyssinia), set the
+  // account balance absolutely instead of incrementing — it self-corrects any
+  // earlier drift. Last write wins for concurrent balance-bearing SMS.
+  const absoluteBalance = parsed.availableBalance;
 
   const created = await prisma
     .$transaction(async (tx) => {
       await tx.account.update({
         where: { id: accountId },
-        data: { balance: { increment: delta } },
+        data:
+          absoluteBalance !== undefined
+            ? { balance: absoluteBalance }
+            : { balance: { increment: delta } },
       });
       return tx.transaction.create({
         data: {
@@ -432,6 +439,7 @@ export async function POST(request: NextRequest) {
       type: created.type,
       amount: created.amount,
       account: account.short,
+      ...(absoluteBalance !== undefined ? { availableBalance: absoluteBalance } : {}),
     },
     { status: 201 }
   );
