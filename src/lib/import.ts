@@ -366,6 +366,77 @@ export function parseSMSBody(
     };
   }
 
+  // CBE (Commercial Bank of Ethiopia):
+  // "Dear Meron Solomon Tsegay You have successfully transferred ETB 650.00
+  //  from account 1********7897 to account 1********2434 (Teklay Zereabruk
+  //  Hagos). Service charge of ETB 0.50 and VAT(15%) of ETB 0.08 and
+  //  Disaster Recovery(5%) of 0.03 with total of ETB 650.61. Your current
+  //  balance is ETB 19.48. Thanks for Banking with CBE. https://mbreciept.
+  //  cbe.com.et/v2-…"
+  // No date inside the body — the caller-provided timestamp supplies it.
+  // The ledger records the TOTAL debited (650.61), like other fee-inclusive
+  // SMS; the fee split is kept in the note. `availableBalance` is set the
+  // same way as BOA — the webhook applies it absolutely.
+  const cbeTextHint = /\bcbe\b|cbe\.com\.et|commercial bank of ethiopia/i.test(text);
+  const cbeTransfer = cbeTextHint
+    ? /successfully\s+transferred\s+ETB\s*([\d,]+\.?\d*)\s+from\s+account\s+([*\d\w]+)\s+to\s+account\s+([*\d\w]+)(?:\s*\(([^)]*)\))?/i.exec(text)
+    : null;
+
+  if (cbeTransfer) {
+    const transferAmt = Number(cbeTransfer[1].replace(/,/g, ''));
+    const fromMask = cbeTransfer[2];
+    const toMask = cbeTransfer[3];
+    const recipient = (cbeTransfer[4] || '').trim();
+    const fee = (re: RegExp) => {
+      const m = re.exec(text);
+      return m ? Number(m[1].replace(/,/g, '')) : 0;
+    };
+    const charge = fee(/service\s+charge\s+of\s+ETB\s*([\d,]+\.?\d*)/i);
+    const vat = fee(/VAT\s*(?:\([^)]*\))?\s*of\s+ETB\s*([\d,]+\.?\d*)/i);
+    // "Disaster Recovery(5%) of 0.03" — the ETB unit is often missing here.
+    const dr = fee(/Disaster\s+Recovery\s*(?:\([^)]*\))?\s*of\s*(?:ETB\s*)?([\d,]+\.?\d*)/i);
+    const totalMatch = /with\s+total\s+of\s+ETB\s*([\d,]+\.?\d*)/i.exec(text);
+    const amount = totalMatch
+      ? Number(totalMatch[1].replace(/,/g, ''))
+      : Math.round((transferAmt + charge + vat + dr) * 100) / 100;
+    const balanceMatch = /current\s+balance\s+is\s+ETB\s*([\d,]+\.?\d*)/i.exec(text);
+    const availableBalance = balanceMatch
+      ? Number(balanceMatch[1].replace(/,/g, ''))
+      : undefined;
+    const receiptMatch = /mbreciept\.cbe\.com\.et\/([^\s]+)/i.exec(text);
+    const receipt = receiptMatch?.[1];
+    const feeParts = [
+      charge ? `charge ETB ${charge.toFixed(2)}` : undefined,
+      vat ? `VAT ETB ${vat.toFixed(2)}` : undefined,
+      dr ? `DR ETB ${dr.toFixed(2)}` : undefined,
+    ].filter(Boolean).join(' + ');
+    const note = [
+      feeParts ? `Transfer ETB ${transferAmt.toFixed(2)} + ${feeParts}` : `Transfer ETB ${transferAmt.toFixed(2)}`,
+      receipt ? `trx ${receipt}` : undefined,
+      recipient ? `To ${recipient}` : undefined,
+      `From acct ${fromMask} → ${toMask}`,
+      availableBalance !== undefined
+        ? `Available balance ETB ${availableBalance.toFixed(2)}`
+        : undefined,
+    ]
+      .filter(Boolean)
+      .join(' · ');
+
+    return {
+      date: fallbackDate,
+      time: '', // No time in the body — webhook falls back to payload time.
+      name: recipient || 'CBE transfer',
+      amount,
+      // Payee is a third party (per recipient name) — a payment, not an
+      // internal transfer and not income.
+      type: 'expense',
+      account: 'CBE',
+      category: 'Uncategorized',
+      note,
+      availableBalance,
+    };
+  }
+
   // Generic bank SMS: "Your account has been debited with ETB 420.00. Ref: POS purchase. 16/11/2026 14:30 PM."
   const genericDebit = /account has been debited with ETB\s*([\d,]+\.?\d*)\.?\s*Ref:\s*([^.]+)\.\s*([^.]+)\./i.exec(text);
   const genericCredit = /account has been credited with ETB\s*([\d,]+\.?\d*)\.?\s*Ref:\s*([^.]+)\.\s*([^.]+)\./i.exec(text);
