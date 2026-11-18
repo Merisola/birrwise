@@ -54,8 +54,8 @@ so pushes to `main` deploy automatically.
 3. Keep the build command as `prisma generate && prisma db push && next build`.
    The first deploy creates/updates the schema, including the unique
    `Transaction.fingerprint` column used for race-safe SMS deduplication.
-   Node.js is pinned to 20 in `package.json` (`engines`) and in the Vercel
-   project settings.
+   Node.js is pinned to 26 in `package.json` (`engines`) and in the Vercel
+   project settings. Vercel no longer accepts Node 20 (discontinued).
 4. `vercel.json` disables preview deployments (`"*": false`, `"main": true`),
    so preview builds cannot touch the production database. Use a separate
    Neon branch/database if you ever want previews again.
