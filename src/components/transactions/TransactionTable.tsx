@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Transaction } from '@/types';
+import { categoryLabel } from '@/lib/categories';
 
 interface TransactionTableProps {
   transactions: Transaction[];
@@ -90,8 +91,9 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
                     className={`category-tag ${
                       t.category === 'Uncategorized' ? 'unc' : ''
                     }`}
+                    title={categoryLabel(t)}
                   >
-                    {t.category}
+                    {categoryLabel(t)}
                   </span>
                 </td>
                 <td className={`amount-cell ${amountCls}`}>{amtStr}</td>

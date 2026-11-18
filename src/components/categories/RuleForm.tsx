@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { Category } from '@/types';
+import { CategorySelectOptions } from '@/components/ui/CategorySelectOptions';
 
 interface RuleFormProps {
   categories: Category[];
@@ -49,11 +50,7 @@ export const RuleForm: React.FC<RuleFormProps> = ({
             value={category}
             onChange={(e) => setCategory(e.target.value)}
           >
-            {allowedCategories.map((c) => (
-              <option key={c.id} value={c.name}>
-                {c.name}
-              </option>
-            ))}
+            <CategorySelectOptions categories={allowedCategories} />
           </select>
         </div>
         <button type="button" className="primary-btn" onClick={handleSave}>

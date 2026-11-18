@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Category, Rule } from '@/types';
+import { onDataRefresh } from '@/lib/refresh';
 
 export function useCategories() {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -38,11 +39,17 @@ export function useCategories() {
     fetchCategoriesAndRules();
   }, [fetchCategoriesAndRules]);
 
-  const createCategory = async (name: string, icon: string): Promise<Category> => {
+  useEffect(() => onDataRefresh(fetchCategoriesAndRules), [fetchCategoriesAndRules]);
+
+  const createCategory = async (
+    name: string,
+    icon: string,
+    parentId?: string | null
+  ): Promise<Category> => {
     const res = await fetch('/api/categories', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, icon }),
+      body: JSON.stringify({ name, icon, parentId: parentId || undefined }),
     });
     if (!res.ok) {
       const err = await res.json();
@@ -51,6 +58,17 @@ export function useCategories() {
     const created: Category = await res.json();
     fetchCategoriesAndRules();
     return created;
+  };
+
+  const loadCommonCategories = async (): Promise<{ added: string[] }> => {
+    const res = await fetch('/api/categories/load-common', { method: 'POST' });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed to load common categories');
+    }
+    const data = await res.json();
+    fetchCategoriesAndRules();
+    return data;
   };
 
   const renameCategory = async (id: string, name: string): Promise<void> => {
@@ -112,5 +130,6 @@ export function useCategories() {
     deleteCategory,
     createRule,
     deleteRule,
+    loadCommonCategories,
   };
 }

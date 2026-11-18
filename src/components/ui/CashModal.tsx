@@ -2,9 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { useUIState } from '@/context/UIContext';
+import { useCategories } from '@/hooks/useCategories';
 import { nowT } from '@/lib/utils';
 import { todayISO } from '@/lib/dates';
 import { Account } from '@/types';
+import { buildCategoryGroups } from '@/lib/categories';
 
 interface CashModalProps {
   onSaveCash: (data: {
@@ -28,6 +30,13 @@ export const CashModal: React.FC<CashModalProps> = ({
   cashAccount,
 }) => {
   const { cashModalOpen, closeCashModal, showToast } = useUIState();
+  const { categories: allCategories } = useCategories();
+  const cashCategories = allCategories.filter(
+    (c) => !['Income', 'Internal transfer'].includes(c.name)
+  );
+  const groups = buildCategoryGroups(cashCategories);
+  const firstExpense = groups[0]?.main.name || 'Food & groceries';
+
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('Food & groceries');
@@ -36,11 +45,15 @@ export const CashModal: React.FC<CashModalProps> = ({
   useEffect(() => {
     if (cashModalOpen) {
       setDate(todayISO());
+      setCategory((prev) =>
+        cashCategories.some((c) => c.name === prev) ? prev : firstExpense
+      );
       setTimeout(() => {
         document.getElementById('cashAmountInput')?.focus();
       }, 60);
     }
-  }, [cashModalOpen]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cashModalOpen, firstExpense]);
 
   if (!cashModalOpen) return null;
 
@@ -89,14 +102,6 @@ export const CashModal: React.FC<CashModalProps> = ({
     }
   };
 
-  const categories = [
-    'Food & groceries',
-    'Transport',
-    'Coffee & snacks',
-    'Bills',
-    'Personal',
-  ];
-
   return (
     <div
       className={`modal-backdrop ${cashModalOpen ? 'show' : ''}`}
@@ -144,16 +149,25 @@ export const CashModal: React.FC<CashModalProps> = ({
 
         <div className="field">
           <label>CATEGORY</label>
-          <div className="chips" id="cashCats">
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                type="button"
-                className={`chip ${category === cat ? 'sel' : ''}`}
-                onClick={() => setCategory(cat)}
-              >
-                {cat}
-              </button>
+          <div className="chip-groups" id="cashCats">
+            {groups.map(({ main, subs }) => (
+              <div key={main.id} className="chip-group">
+                <span className="chip-group-label">
+                  {main.icon} {main.name}
+                </span>
+                <div className="chips">
+                  {[main, ...subs].map((cat) => (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      className={`chip ${category === cat.name ? 'sel' : ''}`}
+                      onClick={() => setCategory(cat.name)}
+                    >
+                      {cat.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
         </div>

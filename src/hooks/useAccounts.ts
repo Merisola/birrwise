@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Account, CreateAccountInput } from '@/types';
+import { onDataRefresh } from '@/lib/refresh';
 
 export function useAccounts() {
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -28,6 +29,8 @@ export function useAccounts() {
   useEffect(() => {
     fetchAccounts();
   }, [fetchAccounts]);
+
+  useEffect(() => onDataRefresh(fetchAccounts), [fetchAccounts]);
 
   const create = async (data: CreateAccountInput): Promise<Account> => {
     const res = await fetch('/api/accounts', {

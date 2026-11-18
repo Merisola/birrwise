@@ -10,6 +10,7 @@ import React, {
 import { useRouter, usePathname } from 'next/navigation';
 import { PageName, Period } from '@/types';
 import { currentMonthKey, monthOptions } from '@/lib/dates';
+import { emitDataRefresh } from '@/lib/refresh';
 
 interface ToastAction {
   label: string;
@@ -56,6 +57,7 @@ interface UIContextType {
   setSelectedAccountFilter: (acc: string) => void;
   selectedCategoryFilter: string;
   setSelectedCategoryFilter: (cat: string) => void;
+  refreshAll: () => void;
 }
 
 const UIContext = createContext<UIContextType | undefined>(undefined);
@@ -120,6 +122,8 @@ export function UIProvider({ children }: { children: ReactNode }) {
   }, [isMasked]);
 
   const toggleMasked = () => setIsMasked((prev) => !prev);
+
+  const refreshAll = () => emitDataRefresh();
 
   const showToast = (message: string, actions?: ToastAction[]) => {
     setToast({ message, actions });
@@ -238,6 +242,7 @@ export function UIProvider({ children }: { children: ReactNode }) {
         setSelectedAccountFilter,
         selectedCategoryFilter,
         setSelectedCategoryFilter,
+        refreshAll,
       }}
     >
       {children}

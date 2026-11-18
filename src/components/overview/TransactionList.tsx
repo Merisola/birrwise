@@ -3,6 +3,7 @@
 import React from 'react';
 import { Transaction } from '@/types';
 import { fdate, key } from '@/lib/utils';
+import { categoryLabel } from '@/lib/categories';
 import { useUIState } from '@/context/UIContext';
 
 interface TransactionListProps {
@@ -82,7 +83,9 @@ export const TransactionList: React.FC<TransactionListProps> = ({
                     {acct} · {fdate(t)}
                   </div>
                 </div>
-                <span className="category-pill">{t.category}</span>
+                <span className="category-pill" title={categoryLabel(t)}>
+                  {categoryLabel(t)}
+                </span>
                 <div
                   className={`tx-amount ${
                     t.type === 'income' ? 'credit' : 'debit'

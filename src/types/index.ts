@@ -21,6 +21,7 @@ export interface Transaction {
   toAccount?: Account | null;
   name: string;
   category: string;
+  categoryParent?: string | null; // set by the API when the category has a parent
   type: TransactionType;
   amount: number;
   icon: string;
@@ -55,6 +56,7 @@ export interface Category {
   id: string;
   name: string;
   icon: string;
+  parentId?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }

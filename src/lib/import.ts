@@ -229,7 +229,8 @@ export function parseSMSBody(
     return {
       date: date || fallbackDate,
       time,
-      name: source,
+      // Own-account movement — never the bank's name.
+      name: 'Internal transfer',
       amount,
       // Your own money moving between your own accounts — a transfer, not income.
       type: 'transfer',

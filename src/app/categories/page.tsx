@@ -8,6 +8,7 @@ import { CategoryForm } from '@/components/categories/CategoryForm';
 import { RuleList } from '@/components/categories/RuleList';
 import { RuleForm } from '@/components/categories/RuleForm';
 import { Category } from '@/types';
+import { ReloadButton } from '@/components/layout/ReloadButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,12 +22,32 @@ export default function CategoriesPage() {
     deleteCategory,
     createRule,
     deleteRule,
+    loadCommonCategories,
   } = useCategories();
 
   const { showToast } = useUIState();
 
   const [showCategoryForm, setShowCategoryForm] = useState(false);
   const [showRuleForm, setShowRuleForm] = useState(false);
+  const [formParentId, setFormParentId] = useState<string | null>(null);
+
+  const openCategoryForm = (parentId: string | null) => {
+    setFormParentId(parentId);
+    setShowCategoryForm(true);
+  };
+
+  const handleLoadCommon = async () => {
+    try {
+      const res = await loadCommonCategories();
+      showToast(
+        res.added.length
+          ? `Added ${res.added.length} common categor${res.added.length === 1 ? 'y' : 'ies'}: ${res.added.join(', ')}`
+          : 'Common categories are already loaded.'
+      );
+    } catch (err: any) {
+      showToast(err.message || 'Failed to load common categories');
+    }
+  };
 
   const handleRename = async (cat: Category) => {
     const newName = window.prompt('Rename category', cat.name);
@@ -84,13 +105,27 @@ export default function CategoriesPage() {
             familiar transactions.
           </p>
         </div>
-        <button
-          type="button"
-          className="primary-btn"
-          onClick={() => setShowCategoryForm((prev) => !prev)}
-        >
-          ＋ Add category
-        </button>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <ReloadButton />
+          <button
+            type="button"
+            className="secondary-btn"
+            onClick={handleLoadCommon}
+          >
+            ↓ Load common categories
+          </button>
+          <button
+            type="button"
+            className="primary-btn"
+            onClick={() =>
+              showCategoryForm && formParentId === null
+                ? setShowCategoryForm(false)
+                : openCategoryForm(null)
+            }
+          >
+            ＋ Add category
+          </button>
+        </div>
       </div>
 
       <div className="management-grid">
@@ -104,13 +139,19 @@ export default function CategoriesPage() {
             categoryIcons={categoryIcons}
             onRename={handleRename}
             onRemove={handleRemoveCategory}
+            onAddSub={(parent) => openCategoryForm(parent.id)}
           />
           {showCategoryForm && (
             <CategoryForm
-              onAdd={async (name, icon) => {
+              categories={categories}
+              initialParentId={formParentId}
+              key={formParentId || 'root'}
+              onAdd={async (name, icon, parentId) => {
                 try {
-                  await createCategory(name, icon);
-                  showToast('Category added.');
+                  await createCategory(name, icon, parentId);
+                  showToast(
+                    parentId ? 'Subcategory added.' : 'Category added.'
+                  );
                 } catch (err: any) {
                   showToast(err.message || 'Failed to add category');
                 }

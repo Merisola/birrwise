@@ -1335,3 +1335,25 @@ body.masked .sens { filter: blur(9px); }
     transition: none !important;
   }
 }
+
+/* Global reload button */
+.reload-btn .reload-glyph { display: inline-block; font-size: 19px; line-height: 1; }
+.reload-btn.is-spinning .reload-glyph { animation: reload-spin 0.7s ease; }
+@keyframes reload-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .reload-btn.is-spinning .reload-glyph { animation: none; }
+}
+
+/* Category taxonomy tree */
+.category-group { border-bottom: 1px solid var(--line, #ececf2); }
+.category-group:last-child { border-bottom: 0; }
+.category-group .manage-row { border-bottom: 0; }
+.manage-row-sub { padding-left: 26px; background: rgba(0, 0, 0, 0.015); }
+
+/* Grouped category chips */
+.chip-groups { display: flex; flex-direction: column; gap: 10px; }
+.chip-group { display: flex; flex-direction: column; gap: 6px; }
+.chip-group-label { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }

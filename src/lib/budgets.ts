@@ -12,9 +12,18 @@ export const BUDGET_CATEGORY_GROUPS: Record<string, string[]> = {
 
 /**
  * Return all transaction categories that should be aggregated for a given budget category.
+ * Static groups first, then the dynamic subcategory map (main -> its subs) passed by the caller.
  */
-export function categoriesForBudget(budgetCategory: string): string[] {
-  return BUDGET_CATEGORY_GROUPS[budgetCategory] || [budgetCategory];
+export function categoriesForBudget(
+  budgetCategory: string,
+  childrenOf?: Record<string, string[]>
+): string[] {
+  const group = BUDGET_CATEGORY_GROUPS[budgetCategory];
+  const children = childrenOf?.[budgetCategory];
+  const merged = new Set<string>([budgetCategory]);
+  if (group) group.forEach((c) => merged.add(c));
+  if (children) children.forEach((c) => merged.add(c));
+  return Array.from(merged);
 }
 
 /**
@@ -73,17 +82,19 @@ export function computeBudgetStatus(
 
 /**
  * Build the full BudgetWithSpending array from Prisma budgets and transactions for a month.
+ * `childrenOf` maps a main category name to its subcategory names (subcategories roll up).
  */
 export function buildBudgetsWithSpending(
   budgets: Budget[],
   transactions: Array<{ category: string; amount: number; type: string }>,
-  month: string
+  month: string,
+  childrenOf?: Record<string, string[]>
 ): BudgetWithSpending[] {
   const prog = monthProgress(month);
   const expenseTx = transactions.filter((t) => t.type === 'expense');
 
   return budgets.map((b) => {
-    const allowed = categoriesForBudget(b.category);
+    const allowed = categoriesForBudget(b.category, childrenOf);
     const spent = expenseTx
       .filter((t) => allowed.includes(t.category))
       .reduce((sum, t) => sum + t.amount, 0);

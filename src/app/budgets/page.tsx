@@ -10,6 +10,7 @@ import { BudgetPaceCard } from '@/components/budgets/BudgetPaceCard';
 import { BudgetAlertsCard } from '@/components/budgets/BudgetAlertsCard';
 import { BudgetAlertBanner } from '@/components/budgets/BudgetAlertBanner';
 import { QuickInsightCard } from '@/components/budgets/QuickInsightCard';
+import { ReloadButton } from '@/components/layout/ReloadButton';
 
 export default function BudgetsPage() {
   const {
@@ -75,6 +76,7 @@ export default function BudgetsPage() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <ReloadButton />
           <select
             className="budget-month"
             id="budgetMonth"

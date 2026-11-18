@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Budget, BudgetWithSpending, CreateBudgetInput } from '@/types';
 import { currentMonthKey, monthOptions } from '@/lib/dates';
+import { onDataRefresh } from '@/lib/refresh';
 
 export interface BudgetPace {
   elapsed: number;
@@ -72,6 +73,8 @@ export function useBudgets(month?: string): UseBudgetsReturn {
   useEffect(() => {
     fetchBudgets();
   }, [fetchBudgets]);
+
+  useEffect(() => onDataRefresh(fetchBudgets), [fetchBudgets]);
 
   const create = async (data: CreateBudgetInput): Promise<Budget> => {
     const res = await fetch('/api/budgets', {

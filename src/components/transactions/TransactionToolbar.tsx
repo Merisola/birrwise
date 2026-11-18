@@ -1,8 +1,9 @@
 'use client';
 
 import React from 'react';
-import { Period } from '@/types';
+import { Period, Category } from '@/types';
 import { Tabs } from '@/components/ui/Tabs';
+import { CategorySelectOptions } from '@/components/ui/CategorySelectOptions';
 
 interface TransactionToolbarProps {
   period: Period;
@@ -19,6 +20,7 @@ interface TransactionToolbarProps {
   onCategoryChange: (c: string) => void;
   type: string;
   onTypeChange: (t: string) => void;
+  categories: Category[];
 }
 
 export const TransactionToolbar: React.FC<TransactionToolbarProps> = ({
@@ -36,6 +38,7 @@ export const TransactionToolbar: React.FC<TransactionToolbarProps> = ({
   onCategoryChange,
   type,
   onTypeChange,
+  categories,
 }) => {
   return (
     <div className="tx-toolbar">
@@ -89,14 +92,7 @@ export const TransactionToolbar: React.FC<TransactionToolbarProps> = ({
         onChange={(e) => onCategoryChange(e.target.value)}
       >
         <option value="all">All categories</option>
-        <option value="Income">Income</option>
-        <option value="Transport">Transport</option>
-        <option value="Coffee & snacks">Coffee & snacks</option>
-        <option value="Food & groceries">Food & groceries</option>
-        <option value="Bills">Bills</option>
-        <option value="Personal">Personal</option>
-        <option value="Internal transfer">Internal transfer</option>
-        <option value="Uncategorized">Uncategorized</option>
+        <CategorySelectOptions categories={categories} mainAllLabel={false} />
       </select>
 
       <select

@@ -8,6 +8,7 @@ import { ImportDropzone } from '@/components/import-export/ImportDropzone';
 import { ImportPreview } from '@/components/import-export/ImportPreview';
 import { ExportButtons } from '@/components/import-export/ExportButtons';
 import { parseImportFile, ImportRow, ImportError, ImportStats } from '@/lib/import';
+import { ReloadButton } from '@/components/layout/ReloadButton';
 
 export default function ImportExportPage() {
   const { transactions, refetch: refetchTransactions } = useTransactions({
@@ -110,6 +111,7 @@ export default function ImportExportPage() {
             lock-in nonsense.
           </p>
         </div>
+        <ReloadButton />
       </div>
 
       <div className="management-grid">

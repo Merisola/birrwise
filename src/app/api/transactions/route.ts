@@ -17,6 +17,33 @@ export async function GET(request: NextRequest) {
 
     const { from, to } = parsePeriodToBounds(period, dateFrom || undefined, dateTo || undefined);
 
+    // Category registry: used to (a) embed the parent name on each row and
+    // (b) widen a main-category filter to include its subcategories.
+    const allCategories = await prisma.category.findMany({
+      select: { id: true, name: true, parentId: true },
+    });
+    const byId = new Map(allCategories.map((c) => [c.id, c]));
+    const byName = new Map(allCategories.map((c) => [c.name.toLowerCase(), c]));
+    const parentOf = (name: string): string | null => {
+      const cat = byName.get((name || '').toLowerCase());
+      if (!cat?.parentId) return null;
+      return byId.get(cat.parentId)?.name ?? null;
+    };
+    // If the filter is a main category, its subs match too.
+    const categoryFilterSet = new Set<string>(
+      categoryFilter === 'all' ? [] : [categoryFilter.toLowerCase()]
+    );
+    if (categoryFilter !== 'all') {
+      const matched = byName.get(categoryFilter.toLowerCase());
+      if (matched && !matched.parentId) {
+        for (const c of allCategories) {
+          if (c.parentId === matched.id) {
+            categoryFilterSet.add(c.name.toLowerCase());
+          }
+        }
+      }
+    }
+
     const transactions = await prisma.transaction.findMany({
       where: {
         date: {
@@ -37,6 +64,7 @@ export async function GET(request: NextRequest) {
     const formatted = transactions.map((t) => ({
       ...t,
       date: t.date.toISOString().slice(0, 10),
+      categoryParent: parentOf(t.category),
     }));
 
     const filtered = formatted.filter((t) => {
@@ -48,7 +76,8 @@ export async function GET(request: NextRequest) {
         toShort === accountFilter;
 
       const matchCategory =
-        categoryFilter === 'all' || t.category === categoryFilter;
+        categoryFilter === 'all' ||
+        categoryFilterSet.has(t.category.toLowerCase());
 
       const matchType = typeFilter === 'all' || t.type === typeFilter;
 
@@ -58,6 +87,7 @@ export async function GET(request: NextRequest) {
         t.account.name,
         t.account.short,
         t.category,
+        t.categoryParent || '',
         t.amount.toString(),
       ]
         .join(' ')

@@ -25,7 +25,9 @@ export const SpendingBreakdown: React.FC<SpendingBreakdownProps> = ({
 
   const byCat: Record<string, number> = {};
   monthExpenses.forEach((t) => {
-    byCat[t.category] = (byCat[t.category] || 0) + t.amount;
+    // Roll subcategories up into their parent for the breakdown.
+    const bucket = t.categoryParent || t.category;
+    byCat[bucket] = (byCat[bucket] || 0) + t.amount;
   });
 
   const sorted = Object.entries(byCat)

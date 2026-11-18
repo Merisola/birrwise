@@ -9,6 +9,7 @@ import { NotificationSettings } from '@/components/settings/NotificationSettings
 import { PrivacySettings } from '@/components/settings/PrivacySettings';
 import { DataTools } from '@/components/settings/DataTools';
 import { Settings } from '@/types';
+import { ReloadButton } from '@/components/layout/ReloadButton';
 
 export default function SettingsPage() {
   const { settings, save: saveSettings } = useSettings();
@@ -57,13 +58,16 @@ export default function SettingsPage() {
           <h2>Settings</h2>
           <p>Control your workspace preferences, privacy and data behavior.</p>
         </div>
-        <button
-          type="button"
-          className="primary-btn"
-          onClick={handleSave}
-        >
-          Save settings
-        </button>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <ReloadButton />
+          <button
+            type="button"
+            className="primary-btn"
+            onClick={handleSave}
+          >
+            Save settings
+          </button>
+        </div>
       </div>
 
       <div className="management-grid">

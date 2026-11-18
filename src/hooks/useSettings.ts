@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Settings } from '@/types';
+import { onDataRefresh } from '@/lib/refresh';
 
 export function useSettings() {
   const [settings, setSettings] = useState<Settings>({
@@ -34,6 +35,8 @@ export function useSettings() {
   useEffect(() => {
     fetchSettings();
   }, [fetchSettings]);
+
+  useEffect(() => onDataRefresh(fetchSettings), [fetchSettings]);
 
   const save = async (newSettings: Partial<Settings>): Promise<void> => {
     setSettings((prev) => ({ ...prev, ...newSettings }));

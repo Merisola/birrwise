@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useUIState } from '@/context/UIContext';
 import { useTransactions } from '@/hooks/useTransactions';
+import { useCategories } from '@/hooks/useCategories';
 import { TransactionSummary } from '@/components/transactions/TransactionSummary';
 import { TransactionToolbar } from '@/components/transactions/TransactionToolbar';
 import { TransactionTable } from '@/components/transactions/TransactionTable';
@@ -10,6 +11,7 @@ import { generateTransactionsCSV } from '@/lib/csv';
 import { downloadBlob } from '@/lib/utils';
 import { todayISO, monthBounds } from '@/lib/dates';
 import { useUIState as useUI } from '@/context/UIContext';
+import { ReloadButton } from '@/components/layout/ReloadButton';
 
 export default function TransactionsPage() {
   const {
@@ -51,6 +53,8 @@ export default function TransactionsPage() {
     type: type as any,
   });
 
+  const { categories } = useCategories();
+
   const resetFilters = () => {
     setPeriod('all');
     setSearch('');
@@ -88,6 +92,7 @@ export default function TransactionsPage() {
           <p>Every birr in and out, in one searchable ledger.</p>
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
+          <ReloadButton />
           <button
             type="button"
             className="secondary-btn"
@@ -138,6 +143,7 @@ export default function TransactionsPage() {
           onCategoryChange={setSelectedCategoryFilter}
           type={type}
           onTypeChange={setType}
+          categories={categories}
         />
 
         <div className="tx-count" id="txCountLabel">

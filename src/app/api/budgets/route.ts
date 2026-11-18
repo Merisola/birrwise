@@ -32,16 +32,31 @@ export async function GET(request: NextRequest) {
 
     const bounds = monthBounds(month);
 
-    const transactions = await prisma.transaction.findMany({
-      where: {
-        date: { gte: bounds.start, lte: bounds.end },
-        type: 'expense',
-      },
-      select: { category: true, amount: true, type: true },
-    });
+    const [transactions, allCategories] = await Promise.all([
+      prisma.transaction.findMany({
+        where: {
+          date: { gte: bounds.start, lte: bounds.end },
+          type: 'expense',
+        },
+        select: { category: true, amount: true, type: true },
+      }),
+      prisma.category.findMany({ select: { name: true, parentId: true, id: true } }),
+    ]);
+
+    // Roll subcategories up into their main categories for budget matching.
+    const byId = new Map(allCategories.map((c) => [c.id, c]));
+    const childrenOf: Record<string, string[]> = {};
+    for (const c of allCategories) {
+      if (c.parentId) {
+        const parent = byId.get(c.parentId);
+        if (parent) {
+          (childrenOf[parent.name] ||= []).push(c.name);
+        }
+      }
+    }
 
     const prog = monthProgress(month);
-    const budgetsWithSpending = buildBudgetsWithSpending(budgetList, transactions, month);
+    const budgetsWithSpending = buildBudgetsWithSpending(budgetList, transactions, month, childrenOf);
     const summary = computeBudgetSummary(budgetsWithSpending);
     const pace = computeBudgetPace(summary, prog);
 

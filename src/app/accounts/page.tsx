@@ -9,6 +9,7 @@ import { Account } from '@/types';
 import { generateAccountsCSV } from '@/lib/csv';
 import { downloadBlob } from '@/lib/utils';
 import { todayISO } from '@/lib/dates';
+import { ReloadButton } from '@/components/layout/ReloadButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -64,6 +65,7 @@ export default function AccountsPage() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
+          <ReloadButton />
           <button
             type="button"
             className="secondary-btn"

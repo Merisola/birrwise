@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Transaction, TransactionFilters, CreateTransactionInput } from '@/types';
+import { onDataRefresh } from '@/lib/refresh';
 
 export function useTransactions(filters?: Partial<TransactionFilters>) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -45,6 +46,8 @@ export function useTransactions(filters?: Partial<TransactionFilters>) {
   useEffect(() => {
     fetchTransactions();
   }, [fetchTransactions]);
+
+  useEffect(() => onDataRefresh(fetchTransactions), [fetchTransactions]);
 
   const create = async (data: CreateTransactionInput): Promise<Transaction> => {
     const res = await fetch('/api/transactions', {

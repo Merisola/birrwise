@@ -4,6 +4,7 @@ import React from 'react';
 import { useUIState } from '@/context/UIContext';
 import { Transaction, Category } from '@/types';
 import { fmt, fdate, rawSMS } from '@/lib/utils';
+import { buildCategoryGroups, categoryLabel } from '@/lib/categories';
 
 interface TransactionDrawerProps {
   transactions: Transaction[];
@@ -56,9 +57,17 @@ export const TransactionDrawer: React.FC<TransactionDrawerProps> = ({
     transaction.type === 'income' ? 'credit' : 'debit';
 
   const catNames = categories.map((c) => c.name);
+  const chipCategories = [...categories];
   if (!catNames.includes('Uncategorized')) {
-    catNames.push('Uncategorized');
+    chipCategories.push({
+      id: 'virtual-uncategorized',
+      name: 'Uncategorized',
+      icon: '◉',
+      createdAt: '',
+      updatedAt: '',
+    });
   }
+  const chipGroups = buildCategoryGroups(chipCategories);
 
   const handleCategorySelect = async (cat: string) => {
     try {
@@ -146,20 +155,38 @@ export const TransactionDrawer: React.FC<TransactionDrawerProps> = ({
             <span>Type</span>
             <b>{transaction.type}</b>
           </div>
+          <div className="kv">
+            <span>Category</span>
+            <b>{categoryLabel(transaction)}</b>
+          </div>
 
           <label className="settings-label" style={{ marginTop: '18px' }}>
             CATEGORY
           </label>
-          <div className="chips">
-            {catNames.map((c) => (
-              <button
-                key={c}
-                type="button"
-                className={`chip ${c === transaction.category ? 'sel' : ''}`}
-                onClick={() => handleCategorySelect(c)}
-              >
-                {c}
-              </button>
+          <div className="chip-groups">
+            {chipGroups.map(({ main, subs }) => (
+              <div key={main.id} className="chip-group">
+                {subs.length > 0 && (
+                  <span className="chip-group-label">
+                    {main.icon} {main.name}
+                  </span>
+                )}
+                <div className="chips">
+                  {[main, ...subs].map((cat) => (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      className={`chip ${
+                        cat.name === transaction.category ? 'sel' : ''
+                      }`}
+                      onClick={() => handleCategorySelect(cat.name)}
+                    >
+                      {subs.length > 0 && cat.id !== main.id ? '· ' : ''}
+                      {cat.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
 

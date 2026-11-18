@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useUIState } from '@/context/UIContext';
 import { monthOptions, monthLabel, todayISO } from '@/lib/dates';
+import { ReloadButton } from './ReloadButton';
 
 interface TopbarProps {
   reviewCount?: number;
@@ -57,6 +58,7 @@ export const Topbar: React.FC<TopbarProps> = ({ reviewCount = 0 }) => {
             </option>
           ))}
         </select>
+        <ReloadButton />
         <button
           className="icon-btn"
           title="Needs review"

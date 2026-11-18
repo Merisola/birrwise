@@ -58,11 +58,14 @@ model Budget {
 }
 
 model Category {
-  id        String   @id @default(cuid())
-  name      String   @unique
+  id        String     @id @default(cuid())
+  name      String     @unique
   icon      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  parentId  String?
+  parent    Category?  @relation("CategoryTaxonomy", fields: [parentId], references: [id], onDelete: SetNull)
+  children  Category[] @relation("CategoryTaxonomy")
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
 }
 
 model Rule {

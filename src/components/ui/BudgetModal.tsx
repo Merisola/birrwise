@@ -2,7 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { useUIState } from '@/context/UIContext';
+import { useCategories } from '@/hooks/useCategories';
 import { BudgetWithSpending } from '@/types';
+import { CategorySelectOptions } from '@/components/ui/CategorySelectOptions';
 
 interface BudgetModalProps {
   budgets: BudgetWithSpending[];
@@ -23,7 +25,13 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({
     showToast,
   } = useUIState();
 
-  const [category, setCategory] = useState('Transport');
+  const { categories } = useCategories();
+  const firstCategory = categories.find((c) => !c.parentId)?.name || '';
+  const budgetable = categories.filter(
+    (c) => !['Income', 'Internal transfer'].includes(c.name)
+  );
+
+  const [category, setCategory] = useState(firstCategory);
   const [limit, setLimit] = useState('');
 
   const editingBudget = budgets.find((b) => b.id === editingBudgetId);
@@ -33,10 +41,10 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({
       setCategory(editingBudget.category);
       setLimit(String(editingBudget.limit));
     } else {
-      setCategory('Transport');
+      setCategory((prev) => prev || firstCategory);
       setLimit('');
     }
-  }, [editingBudget, budgetModalOpen]);
+  }, [editingBudget, budgetModalOpen, firstCategory]);
 
   if (!budgetModalOpen) return null;
 
@@ -49,6 +57,10 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({
     const numLimit = Number(limit);
     if (!numLimit || numLimit <= 0) {
       showToast('Enter a valid monthly limit.');
+      return;
+    }
+    if (!editingBudget && !category) {
+      showToast('Pick a category first.');
       return;
     }
 
@@ -91,13 +103,18 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({
             disabled={!!editingBudget}
             onChange={(e) => setCategory(e.target.value)}
           >
-            <option value="Transport">🚕 Transport</option>
-            <option value="Food & coffee">☕ Food & coffee</option>
-            <option value="Bills">🏠 Bills</option>
-            <option value="Personal">🛍 Personal</option>
-            <option value="Health">💊 Health</option>
-            <option value="Other">✦ Other</option>
+            {budgetable.length === 0 && <option value="">Loading...</option>}
+            {editingBudget &&
+              !budgetable.some((c) => c.name === editingBudget.category) && (
+                <option value={editingBudget.category}>
+                  {editingBudget.category}
+                </option>
+              )}
+            <CategorySelectOptions categories={budgetable} />
           </select>
+          <p className="help" style={{ marginTop: '6px' }}>
+            Budgeting a main category also counts its subcategories.
+          </p>
         </div>
 
         <div className="field">

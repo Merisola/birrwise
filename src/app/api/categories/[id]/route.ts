@@ -7,7 +7,7 @@ export async function PATCH(
 ) {
   try {
     const { id } = params;
-    const { name, icon } = await request.json();
+    const { name, icon, parentId } = await request.json();
 
     const existing = await prisma.category.findUnique({
       where: { id },
@@ -20,11 +20,53 @@ export async function PATCH(
       );
     }
 
+    // Optional re-parenting (omit the field to leave it unchanged; null clears it)
+    let resolvedParentId: string | null | undefined = undefined;
+    if (parentId !== undefined) {
+      if (parentId === null) {
+        resolvedParentId = null; // move to root
+      } else {
+        if (parentId === id) {
+          return NextResponse.json(
+            { error: 'A category cannot be its own parent.' },
+            { status: 400 }
+          );
+        }
+        const parent = await prisma.category.findUnique({
+          where: { id: parentId },
+        });
+        if (!parent) {
+          return NextResponse.json(
+            { error: 'Parent category not found.' },
+            { status: 400 }
+          );
+        }
+        if (parent.parentId) {
+          return NextResponse.json(
+            { error: 'Categories can only be two levels deep.' },
+            { status: 400 }
+          );
+        }
+        // A main category that has children cannot become a subcategory.
+        const childCount = await prisma.category.count({
+          where: { parentId: id },
+        });
+        if (childCount > 0) {
+          return NextResponse.json(
+            { error: 'A category with subcategories cannot become a subcategory.' },
+            { status: 400 }
+          );
+        }
+        resolvedParentId = parent.id;
+      }
+    }
+
     const updated = await prisma.category.update({
       where: { id },
       data: {
         ...(name ? { name: name.trim() } : {}),
         ...(icon ? { icon: icon.trim() } : {}),
+        ...(resolvedParentId !== undefined ? { parentId: resolvedParentId } : {}),
       },
     });
 
