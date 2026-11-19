@@ -11,6 +11,7 @@ import {
   resolveCategoryRef,
   SYSTEM_CATEGORIES,
 } from './helpers';
+import { purchaseWishlistItem } from '@/lib/wishlist';
 import {
   findPendingAction,
   consumePendingAction,
@@ -95,6 +96,35 @@ export const confirmTools: ToolDef[] = [
         case 'rule.delete': {
           await prisma.rule.delete({ where: { id: (p as any).id } });
           result = { deletedRule: (p as any).id };
+          break;
+        }
+        case 'wishlist.purchase': {
+          const r = await purchaseWishlistItem({
+            id: (p as any).id,
+            account: String((p as any).account ?? ''),
+            category: (p as any).category ?? null,
+            acknowledgeCooling: (p as any).acknowledgeCooling === true,
+          });
+          result = {
+            id: r.item.id,
+            name: r.item.name,
+            price: r.transaction.amount,
+            category: r.transaction.category,
+            account: r.account.short,
+            balanceBefore: r.account.balanceBefore,
+            balanceAfter: r.account.balanceAfter,
+            transactionId: r.transaction.id,
+          };
+          break;
+        }
+        case 'wishlist.delete': {
+          const existing = await prisma.wishlistItem.findUnique({
+            where: { id: (p as any).id },
+            select: { id: true, name: true },
+          });
+          if (!existing) fail('Wishlist item no longer exists');
+          await prisma.wishlistItem.delete({ where: { id: existing.id } });
+          result = { deleted: existing.id, name: existing.name };
           break;
         }
         default:

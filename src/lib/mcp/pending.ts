@@ -10,7 +10,9 @@ export type PendingKind =
   | 'txn.setLabel'
   | 'budget.delete'
   | 'category.delete'
-  | 'rule.delete';
+  | 'rule.delete'
+  | 'wishlist.purchase'
+  | 'wishlist.delete';
 
 export interface PendingActionPayload {
   kind: PendingKind;

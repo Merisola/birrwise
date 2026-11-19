@@ -74,13 +74,28 @@ export const moreReadTools: ToolDef[] = [
   {
     name: 'get_settings',
     description:
-      'Get app settings (workspace, currency, date format, budget alerts). Never returns API keys.',
+      'Get app settings (workspace, currency, date format, budget alerts, wishlist). Never returns API keys.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
     handler: async () => {
       const rows = await prisma.setting.findMany();
       const map = new Map(rows.map((r) => [r.key, r.value]));
       const bool = (k: string, d: boolean) =>
         map.has(k) ? map.get(k) === 'true' : d;
+      const numOrNull = (k: string): number | null => {
+        const raw = map.get(k);
+        if (raw === undefined) return null;
+        const n = Number(raw);
+        return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : null;
+      };
+      let excluded: string[] = [];
+      try {
+        const parsed = JSON.parse(map.get('wishlistExcludedCategories') ?? '[]');
+        if (Array.isArray(parsed)) {
+          excluded = parsed.filter((x): x is string => typeof x === 'string');
+        }
+      } catch {
+        excluded = [];
+      }
       return {
         workspace: map.get('workspace') ?? 'My workspace',
         currency: map.get('currency') ?? 'ETB',
@@ -89,6 +104,13 @@ export const moreReadTools: ToolDef[] = [
         budget100: bool('budget100', true),
         review: bool('review', true),
         cycleStartDay: Math.min(28, Math.max(1, Number(map.get('cycleStartDay')) || 7)),
+        wishlistCushion: numOrNull('wishlistCushion'),
+        wishlistIncomeOverride: numOrNull('wishlistIncomeOverride'),
+        wishlistCoolingDays: (() => {
+          const n = Number(map.get('wishlistCoolingDays') ?? '14');
+          return Number.isFinite(n) && n >= 0 ? Math.min(365, Math.floor(n)) : 14;
+        })(),
+        wishlistExcludedCategories: excluded,
       };
     },
   },

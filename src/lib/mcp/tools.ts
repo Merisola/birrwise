@@ -5,12 +5,16 @@ import { writeTools } from './writeTools';
 import { stageTools } from './stageTools';
 import { stageDeleteTools } from './stageDeleteTools';
 import { confirmTools } from './confirmTools';
+import { wishlistReadTools, wishlistWriteTools, wishlistStageTools } from './wishlistTools';
 
 export const MCP_TOOLS: ToolDef[] = [
   ...readTools,
   ...moreReadTools,
+  ...wishlistReadTools,
   ...writeTools,
+  ...wishlistWriteTools,
   ...stageTools,
+  ...wishlistStageTools,
   ...stageDeleteTools,
   ...confirmTools,
 ];

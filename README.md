@@ -138,3 +138,18 @@ account balance and marks the item bought. A purchase larger than the chosen
 account's balance is blocked outright. One-off budget overspends and budget
 pace warnings are warnings, not blocks. Every purchase shows up in Budgets,
 categories and the ledger as a normal expense.
+
+### Wishlist via AI assistants (MCP)
+
+When the MCP endpoint is enabled, assistants can manage the wishlist through
+`get_wishlist` (items with computed state, summary and suggestion),
+`add_wishlist_item` / `update_wishlist_item` (direct writes — metadata only,
+never the ledger), and two-level confirmation for everything else:
+`stage_wishlist_purchase` and `stage_wishlist_item_delete` must be approved
+with `confirm_action(token)`, exactly like transactions and deletes. Purchases
+run the same atomic balance check as the web app; cooling-off items additionally
+require the user's explicit approval and are staged with
+`acknowledgeCooling=true`. `update_settings` / `get_settings` also expose the
+wishlist keys (`wishlistCushion`, `wishlistIncomeOverride`,
+`wishlistCoolingDays`, `wishlistExcludedCategories`); pass `""` or `null` to
+clear the runway and income override.

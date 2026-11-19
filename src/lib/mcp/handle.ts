@@ -2,13 +2,14 @@ import { getMcpState, keyMatches } from './access';
 import { MCP_TOOLS, publicToolList } from './tools';
 
 const SUPPORTED_PROTOCOL_VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
-const SERVER_INFO = { name: 'birrwise-mcp', version: '1.0.0' };
+const SERVER_INFO = { name: 'birrwise-mcp', version: '1.1.0' };
 const INSTRUCTIONS = [
   'Birrwise is a personal finance ledger.',
-  'READ freely: summary, accounts, transactions, budgets, categories, rules, settings (never API keys).',
-  'WRITE freely only for: budgets, categories, rules, accounts, settings.',
-  'TRANSACTIONS and ALL DELETES are two-level: call the stage_* tool first, show the preview to the user, wait for explicit approval, and ONLY then call confirm_action(token). Never confirm without the user saying yes.',
+  'READ freely: summary, accounts, transactions, budgets, categories, rules, settings (never API keys), wishlist.',
+  'WRITE freely only for: budgets, categories, rules, accounts, settings, wishlist items (add/edit).',
+  'TRANSACTIONS, wishlist PURCHASES and ALL DELETES are two-level: call the stage_* tool first, show the preview to the user, wait for explicit approval, and ONLY then call confirm_action(token). Never confirm without the user saying yes.',
   'Amounts are always positive; the type field carries direction (income/expense/transfer). Transfers are excluded from income/expense totals.',
+  'Wishlist purchases are atomic and hard-blocked when the chosen account is short. Items still cooling off need acknowledgeCooling=true at stage time, and only after the user explicitly agrees to buy during cooling-off. Budget conflicts and budget pace are warnings, not blocks.',
 ].join(' ');
 
 function json(body: any, status = 200, extraHeaders: Record<string, string> = {}) {

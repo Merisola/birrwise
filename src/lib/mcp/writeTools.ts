@@ -231,7 +231,7 @@ export const writeTools: ToolDef[] = [
   {
     name: 'update_settings',
     description:
-      'Update app settings (workspace, currency, dateFormat, budget80, budget100, review, cycleStartDay). API keys are not accessible here.',
+      'Update app settings (workspace, currency, dateFormat, budget80, budget100, review, cycleStartDay, wishlistCushion, wishlistIncomeOverride, wishlistCoolingDays, wishlistExcludedCategories). API keys are not accessible here. Pass "" or null for wishlistCushion/wishlistIncomeOverride to clear them; pass [] for wishlistExcludedCategories to reset it.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -242,11 +242,16 @@ export const writeTools: ToolDef[] = [
         budget100: { type: 'boolean' },
         review: { type: 'boolean' },
         cycleStartDay: { type: 'number', minimum: 1, maximum: 28, description: 'Day of month the pay cycle starts (1-28). Example: 7 means cycles run 7th to 6th.' },
+        wishlistCushion: { type: ['number', 'string', 'null'], description: 'late-salary runway (ETB), >= 0. "" or null clears it.' },
+        wishlistIncomeOverride: { type: ['number', 'string', 'null'], description: 'average income (ETB), > 0. "" or null clears it.' },
+        wishlistCoolingDays: { type: 'number', minimum: 0, maximum: 365, description: 'cooling-off period in days (0-365, default 14).' },
+        wishlistExcludedCategories: { type: 'array', items: { type: 'string' }, description: 'one-off category names excluded from the surplus estimate only. Pass [] to reset.' },
       },
       additionalProperties: false,
     },
     handler: async (args) => {
       const entries: [string, string][] = [];
+      const clears: string[] = [];
       const ws = asStr(args?.workspace);
       if (ws) entries.push(['workspace', ws.slice(0, 80)]);
       if (args?.currency !== undefined) {
@@ -269,11 +274,66 @@ export const writeTools: ToolDef[] = [
         }
         entries.push(['cycleStartDay', String(Math.floor(raw))]);
       }
-      if (entries.length === 0) fail('No valid settings provided');
+      // Wishlist settings. Empty string / null clears cushion and income override;
+      // pass [] to reset the excluded one-off categories.
+      if (args?.wishlistCushion !== undefined) {
+        if (args.wishlistCushion === '' || args.wishlistCushion === null) {
+          clears.push('wishlistCushion');
+        } else {
+          const n = asNum(args.wishlistCushion);
+          if (!Number.isFinite(n) || n < 0) {
+            fail('wishlistCushion must be a number >= 0 (or "" / null to clear)');
+          }
+          entries.push(['wishlistCushion', String(Math.round(n * 100) / 100)]);
+        }
+      }
+      if (args?.wishlistIncomeOverride !== undefined) {
+        if (args.wishlistIncomeOverride === '' || args.wishlistIncomeOverride === null) {
+          clears.push('wishlistIncomeOverride');
+        } else {
+          const n = asNum(args.wishlistIncomeOverride);
+          if (!Number.isFinite(n) || n <= 0) {
+            fail('wishlistIncomeOverride must be a positive number (or "" / null to clear)');
+          }
+          entries.push(['wishlistIncomeOverride', String(Math.round(n * 100) / 100)]);
+        }
+      }
+      if (args?.wishlistCoolingDays !== undefined) {
+        const n = asNum(args.wishlistCoolingDays);
+        if (!Number.isFinite(n) || n < 0 || n > 365) {
+          fail('wishlistCoolingDays must be a number between 0 and 365');
+        }
+        entries.push(['wishlistCoolingDays', String(Math.floor(n))]);
+      }
+      if (args?.wishlistExcludedCategories !== undefined) {
+        const raw = args.wishlistExcludedCategories;
+        if (!Array.isArray(raw)) {
+          fail('wishlistExcludedCategories must be an array of category names');
+        }
+        const cleaned = Array.from(
+          new Set(
+            raw
+              .filter((x): x is string => typeof x === 'string')
+              .map((x) => x.trim().slice(0, 80))
+              .filter(Boolean)
+          )
+        ).slice(0, 50);
+        entries.push(['wishlistExcludedCategories', JSON.stringify(cleaned)]);
+      }
+      if (entries.length === 0 && clears.length === 0) fail('No valid settings provided');
       for (const [key, value] of entries) {
         await prisma.setting.upsert({ where: { key }, update: { value }, create: { key, value } });
       }
-      return { success: true, updated: entries.map(([k]) => k) };
+      if (clears.length > 0) {
+        await prisma.setting.deleteMany({ where: { key: { in: clears } } });
+      }
+      return {
+        success: true,
+        updated: [
+          ...entries.map(([k]) => k),
+          ...clears.map((k) => `${k} (cleared)`),
+        ],
+      };
     },
   },
 ];
