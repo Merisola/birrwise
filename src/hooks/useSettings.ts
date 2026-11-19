@@ -13,6 +13,10 @@ export function useSettings() {
     budget100: true,
     review: true,
     cycleStartDay: 7,
+    wishlistCushion: null,
+    wishlistIncomeOverride: null,
+    wishlistCoolingDays: 14,
+    wishlistExcludedCategories: [],
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);

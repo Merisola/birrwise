@@ -5,6 +5,7 @@ A Next.js finance dashboard for tracking budgets, accounts, categories, and tran
 ## Features
 
 - Dashboard with balances, budgets, and spending breakdowns
+- Wishlist — balance/budget-aware "can I afford this yet?" suggestions
 - Transactions, accounts, categories, and rules management
 - CSV import / export
 - SMS webhook (`POST /api/webhooks/sms`) that parses bank alerts and records transactions
@@ -91,3 +92,49 @@ means another alert is also missing.
 
 For fewer gaps, configure MacroDroid to retry failed HTTP requests while the
 phone is offline — the `Transaction.fingerprint` column makes retries safe.
+
+## Wishlist
+
+**Wishlist** tracks the things you want (not things you must have) and tells
+you when you can afford one — using your balance, your budgets and your
+spending, not willpower alone.
+
+The top line is **safe to spend**:
+
+```
+safe to spend = max(0, liquid balance
+                    − late-salary runway (manual)
+                    − unspent part of each budget this cycle)
+```
+
+- **Late-salary runway** is a manual amount you set (Wishlist page or
+  Settings → Wishlist). Salary can arrive up to ~9 days after the cycle
+  boundary and remaining budgets only reserve money through the cycle end, so
+  the runway covers the gap. Suggestions pause until it is set.
+- Budgets are reserved for the rest of the current pay cycle, line by line,
+  so committed money never looks "available". Overspent budgets contribute 0.
+- **Cooling-off**: an item cannot show as Ready for N days after it was added
+  (default 14, configurable 0–365). Buying during cooling needs an extra
+  explicit confirmation tick.
+- **Average income** is a manual override too — it unlocks "cycles away"
+  timeline estimates. Before your first eligible completed cycle, the surplus
+  estimate is `income override − Σ limits of non-one-off budgets`. Cycles that
+  started before your first transaction are ignored. Once eligible cycles
+  exist, the app uses your actual recurring expenses (one-off categories and
+  transfers excluded).
+- **One-off categories** (e.g. partner repayments) are excluded from the
+  surplus estimate only — they still count toward budgets, reports and the
+  safe-to-spend reservation.
+- With no tempting suggestion covered by the numbers, the card says so —
+  it never invents headroom.
+
+Important: rent, repayments and similar obligations must be logged as
+**expenses in their category (not as transfers)**. Transfers are excluded
+from spending math, so a rent logged as a transfer never reduces the
+reservation and items will look more affordable than they are.
+
+Buying an item is one atomic step: it creates the expense, decrements the
+account balance and marks the item bought. A purchase larger than the chosen
+account's balance is blocked outright. One-off budget overspends and budget
+pace warnings are warnings, not blocks. Every purchase shows up in Budgets,
+categories and the ledger as a normal expense.

@@ -17,6 +17,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ reviewCount = 0 }) => {
     { page: 'Overview', icon: '◫' },
     { page: 'Transactions', icon: '⇄', count: reviewCount },
     { page: 'Budgets', icon: '▥' },
+    { page: 'Wishlist', icon: '☆' },
     { page: 'Accounts', icon: '▣' },
   ];
 

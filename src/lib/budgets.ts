@@ -117,6 +117,58 @@ export function buildBudgetsWithSpending(
   });
 }
 
+/**
+ * Map each parent category name to its subcategory names (subcategories roll
+ * up into their parent for budget matching).
+ */
+export function buildChildrenOf(
+  allCategories: Array<{ id: string; name: string; parentId: string | null }>
+): Record<string, string[]> {
+  const byId = new Map(allCategories.map((c) => [c.id, c]));
+  const childrenOf: Record<string, string[]> = {};
+  for (const c of allCategories) {
+    if (c.parentId) {
+      const parent = byId.get(c.parentId);
+      if (parent) {
+        (childrenOf[parent.name] ||= []).push(c.name);
+      }
+    }
+  }
+  return childrenOf;
+}
+
+export interface RemainingBudget {
+  category: string;
+  icon: string;
+  limit: number;
+  spent: number;
+  remaining: number;
+}
+
+/**
+ * Unspent allowance of every budget for the given (usually current) cycle.
+ * Overspent budgets contribute 0 — the overspend already reduced the
+ * account balance, so reserving again would double-count.
+ */
+export function computeRemainingBudgets(
+  budgets: Array<Budget>,
+  transactions: Array<{ category: string; amount: number; type: string }>,
+  month: string,
+  childrenOf: Record<string, string[]> | undefined,
+  startDay = 7
+): { total: number; breakdown: RemainingBudget[] } {
+  const withSpending = buildBudgetsWithSpending(budgets, transactions, month, childrenOf, startDay);
+  const breakdown: RemainingBudget[] = withSpending.map((b) => ({
+    category: b.category,
+    icon: b.icon,
+    limit: b.limit,
+    spent: b.spent,
+    remaining: Math.max(0, b.left),
+  }));
+  const total = breakdown.reduce((sum, b) => sum + b.remaining, 0);
+  return { total, breakdown };
+}
+
 export interface BudgetSummary {
   total: number;
   spent: number;

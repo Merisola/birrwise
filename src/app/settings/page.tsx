@@ -9,6 +9,7 @@ import { McpAccess } from '@/components/settings/McpAccess';
 import { NotificationSettings } from '@/components/settings/NotificationSettings';
 import { PrivacySettings } from '@/components/settings/PrivacySettings';
 import { DataTools } from '@/components/settings/DataTools';
+import { WishlistSettingsCard } from '@/components/wishlist/WishlistSettingsCard';
 import { Settings } from '@/types';
 import { ReloadButton } from '@/components/layout/ReloadButton';
 
@@ -29,8 +30,18 @@ export default function SettingsPage() {
   };
 
   const handleSave = async () => {
+    // Wishlist settings are owned by the Wishlist page card (self-saving);
+    // keep them out of the page-level payload so a stale formData never
+    // clobbers what the user set there.
+    const {
+      wishlistCushion: _c,
+      wishlistIncomeOverride: _i,
+      wishlistCoolingDays: _cd,
+      wishlistExcludedCategories: _e,
+      ...payload
+    } = formData;
     try {
-      await saveSettings(formData);
+      await saveSettings(payload);
       showToast('Settings saved.');
     } catch {
       showToast('Failed to save settings.');
@@ -76,6 +87,8 @@ export default function SettingsPage() {
         <McpAccess settings={formData} refetch={refetch} />
         <NotificationSettings settings={formData} onChange={handleChange} />
         <PrivacySettings />
+        {/* Wishlist settings save on their own button; not part of the page-level Save. */}
+        <WishlistSettingsCard />
         <DataTools
           transactions={transactions}
           onResetDemo={handleResetDemo}

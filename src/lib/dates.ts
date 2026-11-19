@@ -146,6 +146,51 @@ export function todayISO(asOf = new Date()): string {
   return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 
+/**
+ * Whole calendar days between two instants, counted in Ethiopia-time calendar
+ * days (ignore times of day). Negative when `to` is before `from`.
+ */
+export function etDaysBetween(from: Date, to: Date = new Date()): number {
+  const fromDay = Date.parse(`${todayISO(from)}T00:00:00Z`);
+  const toDay = Date.parse(`${todayISO(to)}T00:00:00Z`);
+  return Math.floor((toDay - fromDay) / 86400000);
+}
+
+/**
+ * Up to `count` most recent completed cycle keys (YYYY-MM), newest first.
+ * The current (ongoing) cycle is never included.
+ */
+export function completedCycleKeys(asOf = new Date(), startDay = 7, count = 3): string[] {
+  const cur = currentMonthKey(asOf, startDay);
+  let [y, m] = cur.split('-').map(Number);
+  const keys: string[] = [];
+  while (keys.length < count && y > 1970) {
+    m -= 1;
+    if (m < 1) { m = 12; y -= 1; }
+    keys.push(`${y}-${String(m).padStart(2, '0')}`);
+  }
+  return keys;
+}
+
+/**
+ * Most recent completed cycles that are eligible for averages. A cycle is
+ * eligible only when it started on or after the first recorded transaction
+ * (ET calendar day) — history that began mid-cycle cannot supply a full
+ * cycle of data. Newest first.
+ */
+export function eligibleCycleKeys(
+  firstTransactionDate: Date | null,
+  asOf = new Date(),
+  startDay = 7,
+  count = 3
+): string[] {
+  if (!firstTransactionDate) return [];
+  const firstISO = todayISO(firstTransactionDate);
+  return completedCycleKeys(asOf, startDay, count).filter(
+    (key) => todayISO(monthBounds(key, startDay).start) >= firstISO
+  );
+}
+
 const dayStartUTC = (isoDate: string): Date => new Date(`${isoDate}T00:00:00.000Z`);
 const dayEndUTC = (isoDate: string): Date => new Date(`${isoDate}T23:59:59.999Z`);
 

@@ -81,6 +81,11 @@ export interface Settings {
   hasMcpKey?: boolean;
   mcpKeyPreview?: string | null;
   cycleStartDay?: number;
+  // Wishlist — manual-only estimates in v1 (no auto mode yet).
+  wishlistCushion?: number | null;        // late-salary runway (ETB); unset = suggestions paused
+  wishlistIncomeOverride?: number | null; // manual average income (ETB); unlocks cyclesAway
+  wishlistCoolingDays?: number;           // cooling-off before an item shows Ready (0-365, default 14)
+  wishlistExcludedCategories?: string[];  // one-off categories excluded from the surplus estimate
 }
 
 export type Period = 'today' | 'week' | 'month' | 'year' | 'all' | 'custom';
@@ -89,6 +94,7 @@ export type PageName =
   | 'Overview'
   | 'Transactions'
   | 'Budgets'
+  | 'Wishlist'
   | 'Accounts'
   | 'Categories'
   | 'Import & export'
@@ -131,4 +137,80 @@ export interface CreateBudgetInput {
   limit: number;
   icon?: string;
   color?: string;
+}
+
+export type WishlistItemState = 'cooling' | 'ready' | 'budget-blocked' | 'saving' | 'unknown';
+export type WishlistItemStatus = 'active' | 'purchased';
+
+export interface WishlistItem {
+  id: string;
+  name: string;
+  price: number;
+  priority: number;
+  category: string | null;
+  note: string | null;
+  url: string | null;
+  status: WishlistItemStatus;
+  purchasedAt: string | null;
+  transactionId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ComputedWishlistItem extends WishlistItem {
+  state: WishlistItemState;
+  ageDays: number;
+  coolingDaysLeft: number;
+  cyclesAway: number | null;
+  progress: number;
+  budgetHeadroom: number | null;
+  budgetConflict: boolean;
+  reason: string;
+}
+
+export interface RemainingBudgetEntry {
+  category: string;
+  icon: string;
+  limit: number;
+  spent: number;
+  remaining: number;
+}
+
+export interface WishlistSummary {
+  liquidBalance: number;
+  cushion: number | null;
+  runwayDays: number | null;
+  remainingBudgets: number;
+  remainingBudgetBreakdown: RemainingBudgetEntry[];
+  safeToSpend: number | null;
+  incomeOverride: number | null;
+  excludedCategories: string[];
+  surplus: number | null;
+  surplusSource: 'cycles' | 'budgets' | 'none';
+  surplusDetail: string;
+  cyclesUsed: number;
+  coolingDays: number;
+  budgetPaceAhead: boolean;
+  budgetPaceMessage: string | null;
+  hasBudgets: boolean;
+  currentCycleLabel: string;
+  firstTransactionDate: string | null;
+}
+
+export type WishlistSuggestion =
+  | { kind: 'set-cushion' }
+  | { kind: 'empty' }
+  | { kind: 'ready'; itemId: string }
+  | { kind: 'hold'; message: string }
+  | { kind: 'next-up'; itemId: string; cyclesAway: number | null }
+  | { kind: 'cooling'; itemId: string; daysLeft: number }
+  | { kind: 'none'; message: string };
+
+export interface CreateWishlistInput {
+  name: string;
+  price: number;
+  priority?: number;
+  category?: string | null;
+  note?: string | null;
+  url?: string | null;
 }

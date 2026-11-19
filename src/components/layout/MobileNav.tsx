@@ -30,6 +30,12 @@ export const MobileNav: React.FC = () => {
         <span>▥</span>Budgets
       </button>
       <button
+        className={currentPage === 'Wishlist' ? 'active' : ''}
+        onClick={() => setPage('Wishlist')}
+      >
+        <span>☆</span>Wishlist
+      </button>
+      <button
         className={currentPage === 'Accounts' ? 'active' : ''}
         onClick={() => setPage('Accounts')}
       >
