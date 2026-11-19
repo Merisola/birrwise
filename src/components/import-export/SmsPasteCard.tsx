@@ -186,19 +186,26 @@ export const SmsPasteCard: React.FC<SmsPasteCardProps> = ({ onIngested }) => {
           <p className="help" style={{ margin: '8px 0 0' }}>
             {preview.note}
           </p>
-          <div className="file-meta" style={{ marginTop: '8px' }}>
-            Balance: {money(preview.balanceBefore)} →{' '}
-            <strong>{money(preview.balanceAfter)}</strong>
-            {preview.smsBalance !== undefined && (
-              <> · SMS says {money(preview.smsBalance)}</>
-            )}
-          </div>
-          {preview.smsBalance !== undefined &&
-            Math.abs(preview.smsBalance - preview.balanceAfter) < 0.005 && (
-              <div className="file-meta" style={{ marginTop: '4px', color: 'var(--green, #2f9e6f)' }}>
-                ✓ Matches the balance stated in the SMS.
+          {!preview.duplicate && (
+            <>
+              <div className="file-meta" style={{ marginTop: '8px' }}>
+                Balance: {money(preview.balanceBefore)} →{' '}
+                <strong>{money(preview.balanceAfter)}</strong>
+                {preview.smsBalance !== undefined && (
+                  <> · SMS says {money(preview.smsBalance)}</>
+                )}
               </div>
-            )}
+              {preview.smsBalance !== undefined &&
+                Math.abs(preview.smsBalance - preview.balanceAfter) < 0.005 && (
+                  <div
+                    className="file-meta"
+                    style={{ marginTop: '4px', color: 'var(--green, #2f9e6f)' }}
+                  >
+                    ✓ Matches the balance stated in the SMS.
+                  </div>
+                )}
+            </>
+          )}
           {preview.duplicate ? (
             <div style={{ marginTop: '8px', color: 'var(--amber)', fontSize: '11px' }}>
               This SMS is already in your ledger — it will not be added twice.
