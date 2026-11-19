@@ -8,6 +8,8 @@ A Next.js finance dashboard for tracking budgets, accounts, categories, and tran
 - Transactions, accounts, categories, and rules management
 - CSV import / export
 - SMS webhook (`POST /api/webhooks/sms`) that parses bank alerts and records transactions
+- Manual SMS recovery for alerts that never reached the webhook
+  (**Import & export → Add a missed SMS**)
 - Sign-in page for the dashboard and API (`/login`) backed by a signed
   session cookie; the SMS webhook uses its own `X-API-Key`
 
@@ -72,3 +74,20 @@ so pushes to `main` deploy automatically.
 
 The webhook is excluded from login auth and still requires `X-API-Key`. Never
 commit `.env` or production credentials.
+
+## Missed SMS recovery
+
+If an alert never reached the webhook (phone offline, MacroDroid failure,
+forwarding paused), open **Import & export → Add a missed SMS**, paste the raw
+message (sender defaults to `Telebirr`) and preview it. The flow uses the same
+parser as the webhook — service fees, VAT, stated balances and deduplication are
+handled identically, so pasting the same SMS twice never creates a duplicate.
+
+Manual backfills apply the transaction amount to the balance but never roll the
+balance back to a historical value stated in an old SMS. When the pasted message
+is the newest activity on the account, the preview confirms whether the
+resulting balance matches the balance stated in the SMS; a mismatch usually
+means another alert is also missing.
+
+For fewer gaps, configure MacroDroid to retry failed HTTP requests while the
+phone is offline — the `Transaction.fingerprint` column makes retries safe.

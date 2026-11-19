@@ -305,10 +305,29 @@ export function parseSMSBody(
     // Round to cents to avoid floating-point noise.
     const amount = Math.round((transferAmount + serviceFee + vat) * 100) / 100;
 
+    // Transaction number + the balance stated by the SMS. The balance lets the
+    // webhook self-correct drift; the transaction number aids reconciliation.
+    const trxMatch = /Your transaction number is\s+([A-Z0-9]+)/i.exec(text);
+    const trx = trxMatch?.[1]?.trim();
+    const balanceMatch = /current(?:\s+E-Money Account)?\s+balance is\s+ETB\s*([\d,]+\.?\d*)/i.exec(text);
+    const availableBalance = balanceMatch
+      ? Number(balanceMatch[1].replace(/,/g, ''))
+      : undefined;
+
     const breakdown =
       serviceFee || vat
         ? `Transfer ETB ${transferAmount.toFixed(2)} + fee ETB ${serviceFee.toFixed(2)} + VAT ETB ${vat.toFixed(2)}`
         : `Transfer ETB ${transferAmount.toFixed(2)}`;
+
+    const note = [
+      trx ? `trx ${trx}` : undefined,
+      `${breakdown}${phone ? `; to ${phone}` : ''}`,
+      availableBalance !== undefined
+        ? `Available balance ETB ${availableBalance.toFixed(2)}`
+        : undefined,
+    ]
+      .filter(Boolean)
+      .join(' · ');
 
     return {
       date: normalizeDate(datePart, dateFormat) || fallbackDate,
@@ -318,7 +337,8 @@ export function parseSMSBody(
       type: 'expense',
       account: 'Telebirr',
       category: 'Uncategorized',
-      note: `${breakdown}${phone ? `; to ${phone}` : ''}`,
+      note,
+      availableBalance,
     };
   }
 

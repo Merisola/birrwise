@@ -6,6 +6,7 @@ import { useAccounts } from '@/hooks/useAccounts';
 import { useUIState } from '@/context/UIContext';
 import { ImportDropzone } from '@/components/import-export/ImportDropzone';
 import { ImportPreview } from '@/components/import-export/ImportPreview';
+import { SmsPasteCard } from '@/components/import-export/SmsPasteCard';
 import { ExportButtons } from '@/components/import-export/ExportButtons';
 import { parseImportFile, ImportRow, ImportError, ImportStats } from '@/lib/import';
 import { ReloadButton } from '@/components/layout/ReloadButton';
@@ -58,6 +59,11 @@ export default function ImportExportPage() {
     } finally {
       setIsParsing(false);
     }
+  };
+
+  const handleSmsIngested = () => {
+    refetchTransactions();
+    refetchAccounts();
   };
 
   const handleClear = () => {
@@ -137,6 +143,8 @@ export default function ImportExportPage() {
             {importStatus}
           </div>
         </div>
+
+        <SmsPasteCard onIngested={handleSmsIngested} />
 
         <ExportButtons transactions={transactions} accounts={accounts} />
       </div>
