@@ -80,6 +80,7 @@ export interface Settings {
   mcpEnabled?: boolean;
   hasMcpKey?: boolean;
   mcpKeyPreview?: string | null;
+  cycleStartDay?: number;
 }
 
 export type Period = 'today' | 'week' | 'month' | 'year' | 'all' | 'custom';

@@ -17,9 +17,9 @@ export const BudgetOverview: React.FC<BudgetOverviewProps> = ({
   budgets,
   currentMonth,
 }) => {
-  const { setPage } = useUIState();
+  const { setPage, cycleStartDay } = useUIState();
 
-  const el = elapsed(currentMonth);
+  const el = elapsed(currentMonth, cycleStartDay);
   const monthProgress = Math.round(el * 100);
 
   const top = [...budgets].sort((a, b) => b.pct - a.pct)[0];

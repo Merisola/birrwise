@@ -231,7 +231,7 @@ export const writeTools: ToolDef[] = [
   {
     name: 'update_settings',
     description:
-      'Update app settings (workspace, currency, dateFormat, budget80, budget100, review). API keys are not accessible here.',
+      'Update app settings (workspace, currency, dateFormat, budget80, budget100, review, cycleStartDay). API keys are not accessible here.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -241,6 +241,7 @@ export const writeTools: ToolDef[] = [
         budget80: { type: 'boolean' },
         budget100: { type: 'boolean' },
         review: { type: 'boolean' },
+        cycleStartDay: { type: 'number', minimum: 1, maximum: 28, description: 'Day of month the pay cycle starts (1-28). Example: 7 means cycles run 7th to 6th.' },
       },
       additionalProperties: false,
     },
@@ -260,6 +261,13 @@ export const writeTools: ToolDef[] = [
       }
       for (const k of ['budget80', 'budget100', 'review'] as const) {
         if (args?.[k] !== undefined) entries.push([k, String(asBool(args[k]))]);
+      }
+      if (args?.cycleStartDay !== undefined) {
+        const raw = asNum(args?.cycleStartDay);
+        if (raw === undefined || !Number.isFinite(raw) || raw < 1 || raw > 28) {
+          fail('cycleStartDay must be a number between 1 and 28');
+        }
+        entries.push(['cycleStartDay', String(Math.floor(raw))]);
       }
       if (entries.length === 0) fail('No valid settings provided');
       for (const [key, value] of entries) {

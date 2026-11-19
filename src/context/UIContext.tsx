@@ -58,6 +58,7 @@ interface UIContextType {
   selectedCategoryFilter: string;
   setSelectedCategoryFilter: (cat: string) => void;
   refreshAll: () => void;
+  cycleStartDay: number;
 }
 
 const UIContext = createContext<UIContextType | undefined>(undefined);
@@ -91,6 +92,7 @@ export function UIProvider({ children }: { children: ReactNode }) {
   );
   const [selectedPeriod, setSelectedPeriod] = useState<Period>('week');
   const [currentMonth, setCurrentMonth] = useState<string>(() => currentMonthKey());
+  const [cycleStartDay, setCycleStartDay] = useState<number>(7);
   const [monthOptionsState] = useState(() => monthOptions());
   const [ovFilter, setOvFilter] = useState<string>('All');
   const [selectedAccountFilter, setSelectedAccountFilter] = useState('all');
@@ -112,6 +114,31 @@ export function UIProvider({ children }: { children: ReactNode }) {
       setCurrentPage(page);
     }
   }, [pathname]);
+
+  // Load the configured cycle start day (1-28, default 7) so every
+  // "current month" view anchors to the pay cycle.
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/settings')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (cancelled || !d) return;
+        const n = Number(d.cycleStartDay);
+        if (Number.isFinite(n) && n >= 1 && n <= 28) {
+          const day = Math.floor(n);
+          setCycleStartDay(day);
+          // Re-anchor the current month to the cycle only if the user
+          // hasn't navigated away from the (default-7) initial month.
+          setCurrentMonth((prev) =>
+            prev === currentMonthKey() ? currentMonthKey(new Date(), day) : prev
+          );
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (isMasked) {
@@ -215,6 +242,7 @@ export function UIProvider({ children }: { children: ReactNode }) {
         currentMonth,
         setMonth: setCurrentMonth,
         monthOptions: monthOptionsState,
+        cycleStartDay,
         ovFilter,
         setOvFilter,
         cashModalOpen,

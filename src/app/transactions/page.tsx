@@ -27,7 +27,7 @@ export default function TransactionsPage() {
   } = useUI();
 
   const [dateFrom, setDateFrom] = useState(() => {
-    const bounds = monthBounds();
+    const bounds = monthBounds(); // default calendar-based for custom period
     return bounds.start.toISOString().slice(0, 10);
   });
   const [dateTo, setDateTo] = useState(() => todayISO());

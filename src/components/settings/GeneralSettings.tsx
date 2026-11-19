@@ -46,6 +46,28 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
       </div>
 
       <div className="field">
+        <label htmlFor="cycleStartDay">PAY CYCLE START DAY</label>
+        <input
+          className="settings-input"
+          id="cycleStartDay"
+          type="number"
+          min={1}
+          max={28}
+          step={1}
+          value={settings.cycleStartDay ?? 7}
+          onChange={(e) => {
+            const raw = e.target.valueAsNumber;
+            if (Number.isFinite(raw)) {
+              onChange({ cycleStartDay: Math.min(28, Math.max(1, Math.floor(raw))) });
+            } else {
+              onChange({ cycleStartDay: 7 });
+            }
+          }}
+        />
+        <p className="help">Day of the month your cycle starts (1–28). Default 7. Monthly views run from this day to the day before it next month — e.g. 7 means 7 Nov – 6 Dec.</p>
+      </div>
+
+      <div className="field">
         <label>DATE FORMAT</label>
         <select
           className="settings-input"

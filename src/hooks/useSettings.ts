@@ -12,6 +12,7 @@ export function useSettings() {
     budget80: true,
     budget100: true,
     review: true,
+    cycleStartDay: 7,
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);

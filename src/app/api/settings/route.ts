@@ -11,6 +11,7 @@ export async function GET() {
       budget80: true,
       budget100: true,
       review: true,
+      cycleStartDay: 7, // default pay-cycle start day (1-28)
     };
 
     settingsList.forEach((s) => {
@@ -18,6 +19,10 @@ export async function GET() {
       if (s.key === 'mcpKey') return;
       if (s.value === 'true') defaults[s.key] = true;
       else if (s.value === 'false') defaults[s.key] = false;
+      else if (s.key === 'cycleStartDay') {
+        const n = Number(s.value);
+        defaults[s.key] = Number.isFinite(n) && n >= 1 && n <= 28 ? Math.floor(n) : 7;
+      }
       else defaults[s.key] = s.value;
     });
 
@@ -53,14 +58,22 @@ export async function POST(request: NextRequest) {
       'budget80',
       'budget100',
       'review',
+      'cycleStartDay',
     ]);
 
     for (const [key, val] of Object.entries(body)) {
       if (!ALLOWED.has(String(key))) continue;
+      let value = String(val);
+      if (key === 'cycleStartDay') {
+        // Clamp to 1-28; invalid values fall back to 7.
+        const n = Number(val);
+        if (!Number.isFinite(n) || n < 1 || n > 28) value = '7';
+        else value = String(Math.floor(n));
+      }
       await prisma.setting.upsert({
         where: { key },
-        update: { value: String(val) },
-        create: { key, value: String(val) },
+        update: { value },
+        create: { key, value },
       });
     }
 

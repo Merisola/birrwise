@@ -47,14 +47,14 @@ export const cls = (short: string): string =>
   ({ BOA: 'boa', CBE: 'cbe', Telebirr: 'tele' })[short] || 'cash';
 
 /** @deprecated Use monthProgress from '@/lib/dates' instead */
-export const elapsed = (curMonth: string = currentMonthKey()): number => {
-  const prog = monthProgress(curMonth);
+export const elapsed = (curMonth: string = currentMonthKey(), startDay = 7): number => {
+  const prog = monthProgress(curMonth, startDay);
   return prog.elapsedPct / 100;
 };
 
 /** @deprecated Use monthProgress from '@/lib/dates' instead */
-export const daysLeft = (curMonth: string = currentMonthKey()): number => {
-  const prog = monthProgress(curMonth);
+export const daysLeft = (curMonth: string = currentMonthKey(), startDay = 7): number => {
+  const prog = monthProgress(curMonth, startDay);
   return prog.daysLeft;
 };
 

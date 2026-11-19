@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { monthBounds, monthProgress, monthLabel } from '@/lib/dates';
+import { monthBounds, monthProgress, currentMonthKey } from '@/lib/dates';
+import { getCycleStartDay } from '@/lib/cycle';
 import {
   buildBudgetsWithSpending,
   computeBudgetSummary,
@@ -10,7 +11,11 @@ import {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const month = searchParams.get('month') || monthBounds().month;
+    const startDayParam = searchParams.get('startDay');
+    const startDay = startDayParam ? Number(startDayParam) || 7 : await getCycleStartDay();
+
+    // Default month = current cycle month (YYYY-MM), clamped 1-28 for startDay
+    const month = searchParams.get('month') || currentMonthKey(new Date(), startDay);
 
     // Validate month format
     if (!/^\d{4}-\d{2}$/.test(month)) {
@@ -30,7 +35,7 @@ export async function GET(request: NextRequest) {
       updatedAt: b.updatedAt.toISOString(),
     }));
 
-    const bounds = monthBounds(month);
+    const bounds = monthBounds(month, startDay);
 
     const [transactions, allCategories] = await Promise.all([
       prisma.transaction.findMany({
@@ -55,8 +60,8 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const prog = monthProgress(month);
-    const budgetsWithSpending = buildBudgetsWithSpending(budgetList, transactions, month, childrenOf);
+    const prog = monthProgress(month, startDay);
+    const budgetsWithSpending = buildBudgetsWithSpending(budgetList, transactions, month, childrenOf, startDay);
     const summary = computeBudgetSummary(budgetsWithSpending);
     const pace = computeBudgetPace(summary, prog);
 
@@ -64,7 +69,14 @@ export async function GET(request: NextRequest) {
       budgets: budgetsWithSpending,
       summary,
       pace,
-      monthLabel: monthLabel(month),
+      monthLabel: bounds.label,
+      cycle: {
+        start: bounds.start.toISOString(),
+        end: bounds.end.toISOString(),
+        label: bounds.label,
+        dayOfCycle: prog.daysElapsed,
+        daysInCycle: bounds.daysInCycle,
+      },
     });
   } catch (error) {
     console.error('Error fetching budgets:', error);
@@ -124,4 +136,5 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
 export const dynamic = 'force-dynamic';

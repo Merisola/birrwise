@@ -1,5 +1,5 @@
 import { Budget, BudgetWithSpending } from '@/types';
-import { MonthProgress, monthProgress, monthBounds } from './dates';
+import { MonthProgress, monthProgress, monthBounds } from '@/lib/dates';
 
 /**
  * Explicit category groups for budgets that cover multiple transaction categories.
@@ -83,14 +83,16 @@ export function computeBudgetStatus(
 /**
  * Build the full BudgetWithSpending array from Prisma budgets and transactions for a month.
  * `childrenOf` maps a main category name to its subcategory names (subcategories roll up).
+ * `startDay` is the cycle start day (1-28, default 7) for cycle-aware month progress.
  */
 export function buildBudgetsWithSpending(
   budgets: Budget[],
   transactions: Array<{ category: string; amount: number; type: string }>,
   month: string,
-  childrenOf?: Record<string, string[]>
+  childrenOf?: Record<string, string[]>,
+  startDay = 7
 ): BudgetWithSpending[] {
-  const prog = monthProgress(month);
+  const prog = monthProgress(month, startDay);
   const expenseTx = transactions.filter((t) => t.type === 'expense');
 
   return budgets.map((b) => {

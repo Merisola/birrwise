@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { createTransactionRecord, TransactionInputError, NotFoundError } from '@/lib/transactions';
 import { parsePeriodToBounds } from '@/lib/dates';
+import { getCycleStartDay } from '@/lib/cycle';
 import { Period } from '@/types';
 
 export async function GET(request: NextRequest) {
@@ -15,7 +16,12 @@ export async function GET(request: NextRequest) {
     const categoryFilter = searchParams.get('category') || 'all';
     const typeFilter = searchParams.get('type') || 'all';
 
-    const { from, to } = parsePeriodToBounds(period, dateFrom || undefined, dateTo || undefined);
+    const { from, to } = parsePeriodToBounds(
+      period,
+      dateFrom || undefined,
+      dateTo || undefined,
+      await getCycleStartDay()
+    );
 
     // Category registry: used to (a) embed the parent name on each row and
     // (b) widen a main-category filter to include its subcategories.

@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { parsePeriodToBounds } from '@/lib/dates';
+import { getCycleStartDay } from '@/lib/cycle';
 import { Period } from '@/types';
 import {
   ToolDef,
@@ -52,7 +53,8 @@ export const readTools: ToolDef[] = [
       const { from, to } = parsePeriodToBounds(
         period,
         asStr(args?.dateFrom) || undefined,
-        asStr(args?.dateTo) || undefined
+        asStr(args?.dateTo) || undefined,
+        await getCycleStartDay()
       );
       const txs = await prisma.transaction.findMany({
         where: { date: { gte: from, lte: to } },
@@ -100,7 +102,8 @@ export const readTools: ToolDef[] = [
       const { from, to } = parsePeriodToBounds(
         period,
         asStr(args?.dateFrom) || undefined,
-        asStr(args?.dateTo) || undefined
+        asStr(args?.dateTo) || undefined,
+        await getCycleStartDay()
       );
       const { parentOf, widen } = await categoryIndex();
       const categoryFilter = asStr(args?.category);

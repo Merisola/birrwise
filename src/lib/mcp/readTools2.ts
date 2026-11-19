@@ -88,6 +88,7 @@ export const moreReadTools: ToolDef[] = [
         budget80: bool('budget80', true),
         budget100: bool('budget100', true),
         review: bool('review', true),
+        cycleStartDay: Math.min(28, Math.max(1, Number(map.get('cycleStartDay')) || 7)),
       };
     },
   },

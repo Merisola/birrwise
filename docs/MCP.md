@@ -28,6 +28,19 @@ Staged actions are single-use tokens (`mcp_cf_…`), 10-minute expiry, hashed at
 rest. The assistant is instructed to show the exact preview and ask for your
 explicit approval before confirming — never let it confirm on its own.
 
+## Pay cycle
+
+Monthly views use a configurable **pay cycle** instead of the calendar month.
+`cycleStartDay` (1–28, default **7**) is an app setting: the cycle runs from
+that day to the day before it next month (e.g. 7 → `7 Nov – 6 Dec`). All month
+views follow it — `get_summary` / `list_transactions` with `period: "month"`,
+the Transactions month filter, Budgets pacing and the Overview month label.
+Week stays a rolling 7-day window; year stays the calendar year. Day boundaries
+are computed in Africa/Addis_Ababa time; stored dates are Gregorian. A salary-like
+income landing up to 3 days before the cycle start is treated as informational
+and does **not** move cycle boundaries. Set it via `update_settings`
+(`{"cycleStartDay": 15}`) or **Settings → General → PAY CYCLE START DAY**.
+
 ## Claude Desktop
 
 **Option A — custom connector (no auth):** Settings → Connectors → Add custom
