@@ -17,6 +17,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:local": "prisma generate --schema prisma/schema.sqlite.prisma && tsx prisma/seed.ts",
     "backfill:boa": "tsx scripts/backfill-boa-receipts.ts",
+    "cleanup:ext-ref": "tsx scripts/cleanup-duplicate-external-ref.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {
