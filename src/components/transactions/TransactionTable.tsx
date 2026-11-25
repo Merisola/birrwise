@@ -3,6 +3,7 @@
 import React from 'react';
 import { Transaction } from '@/types';
 import { categoryLabel } from '@/lib/categories';
+import { transferAccountLabel } from '@/lib/utils';
 
 interface TransactionTableProps {
   transactions: Transaction[];
@@ -35,12 +36,7 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
         </thead>
         <tbody id="allTransactionsBody">
           {transactions.map((t) => {
-            const acctName = t.account?.short || t.account?.name || 'Cash';
-            const toAcctName = t.toAccount?.short || t.toAccount?.name;
-            const acct =
-              t.type === 'transfer'
-                ? `${acctName} → ${toAcctName || '—'}`
-                : acctName;
+            const acct = transferAccountLabel(t, transactions);
 
             const sign =
               t.type === 'income' ? '+ ' : t.type === 'transfer' ? '' : '− ';

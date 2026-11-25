@@ -21,6 +21,10 @@ export interface ImportRow {
   rowNumber: number;      // original row number for error reporting
   availableBalance?: number;  // set when the SMS states the balance (e.g. BOA)
   transferDirection?: 'in' | 'out';  // only for type 'transfer': which way money moved
+  toAccount?: string;     // destination account short name (manual transfers)
+  transferGroupId?: string;  // links the two account-side rows of one transfer
+  feeAmount?: number;     // bank fee split from a transfer principal
+  externalRef?: string;   // bank/wallet transaction reference
 }
 
 export interface ImportPreviewResult {
@@ -163,6 +167,15 @@ export function normalizeTime(timeStr: string): string {
   return '12:00 PM';
 }
 
+/** Map a bank name from an SMS body to the account short name we use. */
+function bankShortName(value: string): string {
+  const v = value.trim();
+  if (/abyssinia|\bboa\b/i.test(v)) return 'BOA';
+  if (/commercial bank of ethiopia|\bcbe\b/i.test(v)) return 'CBE';
+  if (/telebirr/i.test(v)) return 'Telebirr';
+  return v;
+}
+
 /**
  * Detect import file type from headers
  */
@@ -229,8 +242,8 @@ export function parseSMSBody(
     return {
       date: date || fallbackDate,
       time,
-      // Own-account movement — never the bank's name.
-      name: 'Internal transfer',
+      // Own-account movement — show which bank the money came from.
+      name: `Transfer from ${bankShortName(source)}`,
       amount,
       // Your own money moving between your own accounts — a transfer, not income.
       type: 'transfer',
@@ -239,6 +252,7 @@ export function parseSMSBody(
       category: 'Internal transfer',
       note,
       availableBalance,
+      externalRef: trx,
     };
   }
 
@@ -339,6 +353,7 @@ export function parseSMSBody(
       category: 'Uncategorized',
       note,
       availableBalance,
+      externalRef: trx,
     };
   }
 
@@ -384,6 +399,7 @@ export function parseSMSBody(
       category: isDebit ? 'Uncategorized' : 'Income',
       note: note || 'Parsed from SMS',
       availableBalance,
+      externalRef: trx,
     };
   }
 
@@ -425,7 +441,8 @@ export function parseSMSBody(
       ? Number(balanceMatch[1].replace(/,/g, ''))
       : undefined;
     const receiptMatch = /mbreciept\.cbe\.com\.et\/([^\s]+)/i.exec(text);
-    const receipt = receiptMatch?.[1];
+    // Strip sentence punctuation that may follow the URL in the SMS body.
+    const receipt = receiptMatch?.[1]?.replace(/[.,;)]+$/, '');
     const feeParts = [
       charge ? `charge ETB ${charge.toFixed(2)}` : undefined,
       vat ? `VAT ETB ${vat.toFixed(2)}` : undefined,
@@ -455,6 +472,7 @@ export function parseSMSBody(
       category: 'Uncategorized',
       note,
       availableBalance,
+      externalRef: receipt,
     };
   }
 

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Transaction } from '@/types';
-import { fdate, key } from '@/lib/utils';
+import { fdate, key, transferAccountLabel } from '@/lib/utils';
 import { categoryLabel } from '@/lib/categories';
 import { useUIState } from '@/context/UIContext';
 
@@ -61,12 +61,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({
           <div className="empty">No activity for this account yet.</div>
         ) : (
           recentTransactions.map((t) => {
-            const acctName = t.account?.short || t.account?.name || 'Cash';
-            const toAcctName = t.toAccount?.short || t.toAccount?.name;
-            const acct =
-              t.type === 'transfer'
-                ? `${acctName} → ${toAcctName || '—'}`
-                : acctName;
+            const acct = transferAccountLabel(t, transactions);
             const sign =
               t.type === 'income' ? '+ ' : t.type === 'transfer' ? '⇄ ' : '− ';
 

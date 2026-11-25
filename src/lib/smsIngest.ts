@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { prisma } from '@/lib/prisma';
 import { suggestCategory } from '@/lib/categorization';
 import {
@@ -7,6 +7,13 @@ import {
   normalizeDate,
   normalizeTime,
 } from '@/lib/import';
+import {
+  BOA_TELEBIRR_FEE_NAME,
+  boaFeeNote,
+  buildBoaEnrichment,
+  extractBoaReceiptRef,
+  fetchBoaReceipt,
+} from '@/lib/boaReceipt';
 
 /**
  * Shared SMS ingestion used by the live webhook and the manual "Add a missed
@@ -37,12 +44,16 @@ export interface SmsTransactionPreview {
   date: string;              // YYYY-MM-DD
   time: string;              // HH:MM AM/PM
   name: string;
-  amount: number;            // total outflow incl. fees/VAT
+  amount: number;            // transfer principal, or total for expense/income
   type: 'income' | 'expense' | 'transfer';
   category: string;
   note: string;
   icon: string;
   account: { id: string; short: string; name: string };
+  transferDirection?: 'in' | 'out';
+  transferGroupId?: string;
+  /** Bank fee recorded as a separate expense row (transfers only). */
+  feeAmount?: number;
 }
 
 export interface SmsPreviewResult extends SmsTransactionPreview {
@@ -64,6 +75,7 @@ export type SmsIngestResult =
       balanceBefore: number;
       balanceAfter: number;
       smsBalance?: number;
+      feeTransactionId?: string;
     }
   | { status: 'duplicate' }
   | { status: 'invalid_timestamp'; message: string }
@@ -162,6 +174,77 @@ function timeToMinutes(value?: string | null): number {
   return hour * 60 + Number(m[2]);
 }
 
+function round(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+/** Account short named in "Transfer to X" / "Transfer from X". */
+function transferCounterparty(name: string, direction: 'in' | 'out'): string | null {
+  const re = direction === 'in' ? /^Transfer from\s+(.+)$/i : /^Transfer to\s+(.+)$/i;
+  const match = re.exec(name.trim());
+  return match?.[1]?.trim() || null;
+}
+
+interface TransferSibling {
+  id: string;
+  name: string;
+  transferGroupId: string | null;
+}
+
+/**
+ * Find the other account's row for the same movement. Only links when there is
+ * exactly one plausible candidate, so two similar transfers on the same day
+ * are left unlinked instead of being paired incorrectly.
+ */
+async function findTransferSibling(params: {
+  siblingAccountId: string;
+  amount: number;
+  dateISO: string;
+  timeStr: string;
+  siblingDirection: 'in' | 'out';
+}): Promise<TransferSibling | null> {
+  const candidates = await prisma.transaction.findMany({
+    where: {
+      accountId: params.siblingAccountId,
+      type: 'transfer',
+      toAccountId: null,
+      transferGroupId: null,
+      amount: params.amount,
+      date: new Date(`${params.dateISO}T12:00:00Z`),
+    },
+    select: {
+      id: true,
+      name: true,
+      note: true,
+      time: true,
+      transferDirection: true,
+      transferGroupId: true,
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  const targetMinutes = timeToMinutes(params.timeStr);
+  const withinWindow = candidates.filter((candidate) => {
+    const directionOk =
+      params.siblingDirection === 'in'
+        ? candidate.transferDirection !== 'out'
+        : candidate.transferDirection !== 'in';
+    if (!directionOk) return false;
+
+    // The sibling on the BOA side must already be a Telebirr transfer; this
+    // stops us pairing an unrelated BOA payment with the same amount.
+    if (params.siblingDirection === 'out') {
+      const haystack = `${candidate.name} ${candidate.note || ''}`;
+      if (!/telebirr/i.test(haystack)) return false;
+    }
+
+    return Math.abs(timeToMinutes(candidate.time) - targetMinutes) <= 15;
+  });
+
+  if (withinWindow.length !== 1) return null;
+  return withinWindow[0];
+}
+
 export async function ingestSms(
   payload: SmsIngestPayload,
   options: SmsIngestOptions = {}
@@ -177,12 +260,44 @@ export async function ingestSms(
     };
   }
 
-  const parsed = parseSMSBody(payload.message, payload.sender, parsedTime.date, 'DD/MM/YYYY');
+  let parsed = parseSMSBody(payload.message, payload.sender, parsedTime.date, 'DD/MM/YYYY');
   if (!parsed) {
     return {
       status: 'unparseable',
       message: 'Could not parse the SMS message as a transaction.',
     };
+  }
+
+  // --- BOA receipt enrichment ---
+  // The SMS has no counterparty name; the receipt does. Enrichment is strictly
+  // best-effort — any failure leaves the parser's generic BOA debit/credit row.
+  let boaReceipt = null as Awaited<ReturnType<typeof fetchBoaReceipt>>;
+  if (parsed.account === 'BOA') {
+    const ref = parsed.externalRef || extractBoaReceiptRef(payload.message);
+    if (ref) {
+      boaReceipt = await fetchBoaReceipt(ref);
+      if (boaReceipt) {
+        const enrichment = buildBoaEnrichment(boaReceipt, {
+          smsAmount: parsed.amount ?? 0,
+          isDebit: parsed.type !== 'income',
+          fallbackName:
+            parsed.name || (parsed.type === 'income' ? 'BOA credit' : 'BOA debit'),
+        });
+        parsed = {
+          ...parsed,
+          date: enrichment.date || parsed.date,
+          time: enrichment.time || parsed.time,
+          name: enrichment.name,
+          type: enrichment.type,
+          category: enrichment.category,
+          transferDirection: enrichment.transferDirection,
+          amount: enrichment.principalAmount,
+          note: enrichment.note,
+          externalRef: enrichment.externalRef,
+          feeAmount: enrichment.feeAmount,
+        };
+      }
+    }
   }
 
   // --- Account resolution ---
@@ -239,14 +354,23 @@ export async function ingestSms(
   const dateObj = new Date(`${dateISO}T12:00:00Z`);
   const timeStr = parsed.time || parsedTime.time;
   const amount = Math.abs(parsed.amount ?? 0);
+  const feeAmount = Math.abs(parsed.feeAmount ?? 0);
   const name = parsed.name || 'SMS transaction';
+  const transferDirection = parsed.transferDirection;
   const icon = type === 'income' ? '↗' : type === 'transfer' ? '⇄' : '📩';
   const sourceSuffix =
     source === 'manual' ? 'Added manually from SMS' : 'Auto-ingested from SMS webhook';
-  const note =
-    parsed.note && parsed.note !== 'Parsed from SMS'
-      ? `${parsed.note} · ${sourceSuffix}`
-      : sourceSuffix;
+
+  const parsedNote =
+    parsed.note && parsed.note !== 'Parsed from SMS' ? parsed.note : '';
+  const noteWithBalance =
+    parsed.availableBalance !== undefined &&
+    !/available balance/i.test(parsedNote)
+      ? [parsedNote, `Available balance ETB ${parsed.availableBalance.toFixed(2)}`]
+          .filter(Boolean)
+          .join(' · ')
+      : parsedNote;
+  const note = noteWithBalance ? `${noteWithBalance} · ${sourceSuffix}` : sourceSuffix;
 
   // --- Idempotency ---
   // Exact fingerprint of the SMS: protects against MacroDroid retries and
@@ -261,6 +385,16 @@ export async function ingestSms(
   });
 
   let duplicate = Boolean(exactDuplicate);
+
+  // Bank reference is the strongest cross-delivery key: it survives whitespace
+  // changes and also catches SMSes whose body was already enriched differently.
+  if (!duplicate && parsed.externalRef) {
+    const byRef = await prisma.transaction.findUnique({
+      where: { externalRef: parsed.externalRef },
+      select: { id: true },
+    });
+    duplicate = Boolean(byRef);
+  }
 
   // Secondary semantic check for older transactions that predate fingerprints,
   // or for a retry whose body whitespace changed.
@@ -277,9 +411,42 @@ export async function ingestSms(
     );
   }
 
+  // --- Linked two-row transfers ---
+  // Each account keeps its own row (auditability), joined by a shared group id.
+  // No toAccountId is set, so balances are never applied twice.
+  let transferGroupId: string | undefined;
+  let siblingId: string | undefined;
+  let siblingName = '';
+  if (
+    type === 'transfer' &&
+    (transferDirection === 'in' || transferDirection === 'out')
+  ) {
+    const counterpartyShort = transferCounterparty(name, transferDirection);
+    const siblingAccount = resolve(counterpartyShort || undefined);
+    if (siblingAccount && siblingAccount.id !== account.id) {
+      const sibling = await findTransferSibling({
+        siblingAccountId: siblingAccount.id,
+        amount,
+        dateISO,
+        timeStr,
+        siblingDirection: transferDirection === 'in' ? 'out' : 'in',
+      });
+      if (sibling) {
+        transferGroupId = sibling.transferGroupId || randomUUID();
+        siblingId = sibling.id;
+        siblingName = sibling.name;
+      }
+    }
+  }
+
   // --- Balance math ---
-  const isIncomingTransfer = type === 'transfer' && parsed.transferDirection === 'in';
-  const delta = type === 'income' || isIncomingTransfer ? amount : -amount;
+  const isIncomingTransfer = type === 'transfer' && transferDirection === 'in';
+  const delta =
+    type === 'income' || isIncomingTransfer
+      ? amount
+      : type === 'transfer'
+      ? -(amount + feeAmount)
+      : -amount;
   const smsBalance = parsed.availableBalance;
 
   // Is this SMS the newest activity on the account? Only then does its stated
@@ -321,6 +488,9 @@ export async function ingestSms(
     balanceBefore: account.balance,
     balanceAfter,
     duplicate,
+    ...(feeAmount > 0 ? { feeAmount } : {}),
+    ...(transferDirection ? { transferDirection } : {}),
+    ...(transferGroupId ? { transferGroupId } : {}),
     ...(smsBalance !== undefined ? { smsBalance } : {}),
     ...(smsBalance !== undefined &&
     isLatestForAccount &&
@@ -337,9 +507,28 @@ export async function ingestSms(
     return { status: 'duplicate' };
   }
 
-  // --- Create transaction + adjust balance atomically ---
+  // --- Create transaction(s) + adjust balance atomically ---
   const created = await prisma
     .$transaction(async (tx) => {
+      // Join the other account's leg before inserting, so the pair is visible
+      // immediately on both registers.
+      if (siblingId && transferGroupId) {
+        // A legacy Telebirr pull is called "Internal transfer"; give it a
+        // clear counterparty now that the BOA side is known.
+        const renameSibling =
+          transferDirection === 'out' &&
+          /^(Internal transfer|Transfer from )/i.test(siblingName);
+        await tx.transaction.update({
+          where: { id: siblingId },
+          data: {
+            transferGroupId,
+            ...(renameSibling
+              ? { name: 'Transfer from BOA', transferDirection: 'in' as const }
+              : {}),
+          },
+        });
+      }
+
       await tx.account.update({
         where: { id: account.id },
         data:
@@ -347,7 +536,32 @@ export async function ingestSms(
             ? { balance: smsBalance }
             : { balance: { increment: delta } },
       });
-      return tx.transaction.create({
+
+      let feeTransactionId: string | undefined;
+      if (type === 'transfer' && feeAmount > 0) {
+        const fee = await tx.transaction.create({
+          data: {
+            date: dateObj,
+            time: timeStr,
+            accountId: account.id,
+            name: BOA_TELEBIRR_FEE_NAME,
+            category: 'Uncategorized',
+            type: 'expense',
+            amount: feeAmount,
+            icon: '🧾',
+            note: `${
+              boaReceipt ? boaFeeNote(boaReceipt, feeAmount) : 'BOA transfer fee'
+            } · ${sourceSuffix}`,
+            fingerprint: `${fingerprint}:fee`,
+            externalRef: parsed.externalRef ? `${parsed.externalRef}:fee` : null,
+            transferGroupId: transferGroupId || null,
+          },
+          select: { id: true },
+        });
+        feeTransactionId = fee.id;
+      }
+
+      const primary = await tx.transaction.create({
         data: {
           date: dateObj,
           time: timeStr,
@@ -359,6 +573,9 @@ export async function ingestSms(
           icon,
           note,
           fingerprint,
+          externalRef: parsed.externalRef || null,
+          transferGroupId: transferGroupId || null,
+          transferDirection: transferDirection || null,
         },
         select: {
           id: true,
@@ -371,6 +588,8 @@ export async function ingestSms(
           note: true,
         },
       });
+
+      return { primary, feeTransactionId };
     })
     .catch((error) => {
       // A concurrent delivery inserted the same fingerprint first. The
@@ -383,22 +602,29 @@ export async function ingestSms(
     return { status: 'duplicate' };
   }
 
+  const primary = created.primary;
   return {
     status: 'created',
     transaction: {
-      id: created.id,
-      date: created.date.toISOString().slice(0, 10),
-      time: created.time,
-      name: created.name,
-      amount: created.amount,
-      type: created.type as SmsTransactionPreview['type'],
-      category: created.category,
-      note: created.note ?? note,
+      id: primary.id,
+      date: primary.date.toISOString().slice(0, 10),
+      time: primary.time,
+      name: primary.name,
+      amount: primary.amount,
+      type: primary.type as SmsTransactionPreview['type'],
+      category: primary.category,
+      note: primary.note ?? note,
       icon,
       account: { id: account.id, short: account.short, name: account.name },
+      ...(feeAmount > 0 ? { feeAmount } : {}),
+      ...(transferDirection ? { transferDirection } : {}),
+      ...(transferGroupId ? { transferGroupId } : {}),
     },
     balanceBefore: account.balance,
     balanceAfter,
     ...(smsBalance !== undefined ? { smsBalance } : {}),
+    ...(created.feeTransactionId
+      ? { feeTransactionId: created.feeTransactionId }
+      : {}),
   };
 }

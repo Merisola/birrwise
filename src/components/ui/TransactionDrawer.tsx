@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useUIState } from '@/context/UIContext';
 import { Transaction, Category } from '@/types';
-import { fmt, fdate, rawSMS } from '@/lib/utils';
+import { fmt, fdate, rawSMS, transferAccountLabel } from '@/lib/utils';
 import { buildCategoryGroups, categoryLabel } from '@/lib/categories';
 
 interface TransactionDrawerProps {
@@ -49,12 +49,7 @@ export const TransactionDrawer: React.FC<TransactionDrawerProps> = ({
     );
   }
 
-  const acctName = transaction.account?.short || transaction.account?.name || 'Cash';
-  const toAcctName = transaction.toAccount?.short || transaction.toAccount?.name;
-  const acctDisplay =
-    transaction.type === 'transfer'
-      ? `${acctName} → ${toAcctName || '—'}`
-      : acctName;
+  const acctDisplay = transferAccountLabel(transaction, transactions);
 
   const sign =
     transaction.type === 'income'
@@ -278,7 +273,8 @@ export const TransactionDrawer: React.FC<TransactionDrawerProps> = ({
             {rawSMS({
               date: transaction.date,
               time: transaction.time,
-              account: acctName,
+              account:
+                transaction.account?.short || transaction.account?.name || 'Cash',
               name: transaction.name,
               amount: transaction.amount,
               type: transaction.type,

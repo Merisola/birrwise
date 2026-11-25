@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Transaction, Rule } from '@/types';
-import { fdate, key } from '@/lib/utils';
+import { fdate, key, transferAccountLabel } from '@/lib/utils';
 import { suggestCategory } from '@/lib/categorization';
 import { useUIState } from '@/context/UIContext';
 
@@ -71,7 +71,7 @@ export const ReviewPanel: React.FC<ReviewPanelProps> = ({
               .filter((c) => c !== suggested)
               .slice(0, 3);
 
-            const acctName = t.account?.short || t.account?.name || 'Cash';
+            const acctName = transferAccountLabel(t, transactions);
             const sign = t.type === 'income' ? '+ ' : t.type === 'transfer' ? '⇄ ' : '− ';
 
             return (

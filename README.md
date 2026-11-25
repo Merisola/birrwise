@@ -60,7 +60,8 @@ so pushes to `main` deploy automatically.
      reset endpoint when set to `true`.
 3. Keep the build command as `prisma generate && prisma db push && next build`.
    The first deploy creates/updates the schema, including the unique
-   `Transaction.fingerprint` column used for race-safe SMS deduplication.
+   `Transaction.fingerprint` and `Transaction.externalRef` columns used for
+   race-safe SMS deduplication.
    Node.js is pinned to 26 in `package.json` (`engines`) and in the Vercel
    project settings. Vercel no longer accepts Node 20 (discontinued).
 4. `vercel.json` disables preview deployments (`"*": false`, `"main": true`),
@@ -92,6 +93,33 @@ means another alert is also missing.
 
 For fewer gaps, configure MacroDroid to retry failed HTTP requests while the
 phone is offline — the `Transaction.fingerprint` column makes retries safe.
+
+## BOA receipt enrichment
+
+BOA debit/credit alerts contain no counterparty name. When the SMS includes a
+`cs.bankofabyssinia.com/slip/?trx=FT…` link, Birrwise fetches the receipt (fixed
+allowlisted host, strict `FT…` reference check, 3-second timeout) and uses the
+receiver/payer name. If the receipt is unavailable, the row keeps the generic
+`BOA debit` / `BOA credit` name.
+
+A BOA → Telebirr top-up becomes two linked rows: `Transfer to Telebirr` on BOA
+(principal only) and `Transfer from BOA` on Telebirr, joined by
+`transferGroupId`. The service charge + VAT is recorded as a separate
+`Bank fee (BOA → Telebirr)` expense, so the ledger total still equals the
+original SMS debit.
+
+Rows ingested before this feature can be enriched with the idempotent backfill:
+
+```bash
+npm run backfill:boa              # dry run against DATABASE_URL
+npm run backfill:boa -- --apply   # write changes
+```
+
+It only updates names/notes/references and splits the BOA debit into
+principal + fee. Account balances are never changed, and running it twice is
+safe. For production, run it with the Postgres `DATABASE_URL` after the deploy
+has pushed the new `externalRef`, `transferGroupId` and `transferDirection`
+columns.
 
 ## Wishlist
 

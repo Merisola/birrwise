@@ -55,13 +55,26 @@ export async function POST(request: NextRequest) {
 
     // Build existing fingerprints for deduplication
     const existingTx = await prisma.transaction.findMany({
-      select: { date: true, time: true, name: true, amount: true, accountId: true, type: true },
+      select: {
+        date: true,
+        time: true,
+        name: true,
+        amount: true,
+        accountId: true,
+        type: true,
+        externalRef: true,
+      },
     });
     const accountShortMap = new Map(allAccounts.map(a => [a.id, a.short.toLowerCase()]));
     const existingFingerprints = new Set(
       existingTx.map(t =>
         `${t.date.toISOString().slice(0, 10)}|${t.time}|${t.name.toLowerCase().trim()}|${t.amount.toFixed(2)}|${accountShortMap.get(t.accountId) || ''}|${t.type}`
       )
+    );
+    const existingExternalRefs = new Set(
+      existingTx
+        .map((t) => t.externalRef)
+        .filter((ref): ref is string => Boolean(ref))
     );
 
     const batchFingerprints = new Set<string>();
@@ -97,7 +110,11 @@ export async function POST(request: NextRequest) {
 
         // Fingerprint for deduplication
         const fingerprint = `${t.date}|${t.time}|${t.name.toLowerCase().trim()}|${t.amount.toFixed(2)}|${targetAccountId}|${t.type}`;
-        if (existingFingerprints.has(fingerprint) || batchFingerprints.has(fingerprint)) {
+        if (
+          existingFingerprints.has(fingerprint) ||
+          batchFingerprints.has(fingerprint) ||
+          (t.externalRef && existingExternalRefs.has(t.externalRef))
+        ) {
           skippedDuplicates++;
           continue;
         }
@@ -122,12 +139,18 @@ export async function POST(request: NextRequest) {
               amount: Math.abs(Number(t.amount) || 0),
               icon: t.icon || (t.type === 'income' ? '↗' : t.type === 'transfer' ? '⇄' : '🛍'),
               note: t.note || 'Imported from CSV',
+              transferDirection: t.transferDirection || null,
+              transferGroupId: t.transferGroupId || null,
+              externalRef: t.externalRef || null,
             },
           });
 
-          // Aggregate balance changes
+          // Aggregate balance changes. A two-row transfer-in has no
+          // toAccountId; its own account gains the money.
           const amt = Math.abs(Number(t.amount) || 0);
-          if (t.type === 'income') {
+          const incomingTransfer =
+            t.type === 'transfer' && t.transferDirection === 'in';
+          if (t.type === 'income' || incomingTransfer) {
             balanceDeltas.set(targetAccountId, (balanceDeltas.get(targetAccountId) || 0) + amt);
           } else {
             balanceDeltas.set(targetAccountId, (balanceDeltas.get(targetAccountId) || 0) - amt);
@@ -137,6 +160,7 @@ export async function POST(request: NextRequest) {
             balanceDeltas.set(toAccountId, (balanceDeltas.get(toAccountId) || 0) + amt);
           }
 
+          if (t.externalRef) existingExternalRefs.add(t.externalRef);
           batchFingerprints.add(fingerprint);
           importedCount++;
         } catch (e) {

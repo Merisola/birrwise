@@ -1,3 +1,4 @@
+import { Transaction } from '@/types';
 import { monthProgress, todayISO, currentMonthKey } from './dates';
 
 export const fmt = (n: number | string): string =>
@@ -87,6 +88,55 @@ export const downloadBlob = (
   a.click();
   // Defer revoke to allow the download to start
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+
+const accountShort = (
+  account?: Transaction['account'] | string | null
+): string => {
+  if (!account) return 'Cash';
+  return typeof account === 'string' ? account : account.short || account.name || 'Cash';
+};
+
+/**
+ * Label for the account column. Two-row transfers (BOA out + Telebirr in) have
+ * no toAccount, so derive the counterparty from the linked group — or from the
+ * name ("Transfer to Telebirr") when the sibling is filtered out.
+ */
+export const transferAccountLabel = (
+  t: Transaction,
+  all?: Transaction[]
+): string => {
+  const acct = accountShort(t.account);
+  if (t.type !== 'transfer') return acct;
+
+  if (t.toAccount) {
+    return `${acct} → ${accountShort(t.toAccount)}`;
+  }
+
+  if (t.transferGroupId && all) {
+    const sibling = all.find(
+      (x) =>
+        x.id !== t.id &&
+        x.transferGroupId === t.transferGroupId &&
+        x.type === 'transfer' &&
+        x.accountId !== t.accountId
+    );
+    if (sibling) {
+      const other = accountShort(sibling.account);
+      return t.transferDirection === 'in'
+        ? `${acct} ← ${other}`
+        : `${acct} → ${other}`;
+    }
+  }
+
+  const match = /^Transfer (to|from)\s+(.+)$/i.exec(t.name || '');
+  if (match) {
+    return match[1].toLowerCase() === 'to'
+      ? `${acct} → ${match[2]}`
+      : `${acct} ← ${match[2]}`;
+  }
+
+  return acct;
 };
 
 export const rawSMS = (t: {

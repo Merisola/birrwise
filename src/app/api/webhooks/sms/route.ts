@@ -193,6 +193,8 @@ export async function POST(request: NextRequest) {
           type: t.type,
           amount: t.amount,
           account: t.account.short,
+          ...(t.feeAmount !== undefined ? { feeAmount: t.feeAmount } : {}),
+          ...(t.transferGroupId ? { transferGroupId: t.transferGroupId } : {}),
           ...(result.smsBalance !== undefined ? { availableBalance: result.smsBalance } : {}),
         },
         { status: 201 }

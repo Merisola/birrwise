@@ -18,6 +18,9 @@ interface SmsPreview {
   smsBalance?: number;
   duplicate: boolean;
   balanceMismatch?: { expected: number; stated: number };
+  feeAmount?: number;
+  transferDirection?: 'in' | 'out';
+  transferGroupId?: string;
 }
 
 interface SmsPasteCardProps {
@@ -186,6 +189,12 @@ export const SmsPasteCard: React.FC<SmsPasteCardProps> = ({ onIngested }) => {
           <p className="help" style={{ margin: '8px 0 0' }}>
             {preview.note}
           </p>
+          {preview.feeAmount !== undefined && preview.feeAmount > 0 && (
+            <div className="file-meta" style={{ marginTop: '6px' }}>
+              Transfer {money(preview.amount)} + bank fee{' '}
+              {money(preview.feeAmount)}
+            </div>
+          )}
           {!preview.duplicate && (
             <>
               <div className="file-meta" style={{ marginTop: '8px' }}>

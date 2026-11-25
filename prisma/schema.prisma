@@ -36,12 +36,21 @@ model Transaction {
   note        String?
   label       String? // user's own annotation, separate from the system note
   fingerprint String?  @unique
+  // Bank/wallet transaction reference (e.g. BOA FT…, Telebirr DKO…) used for
+  // idempotent ingestion and receipt lookups.
+  externalRef String?  @unique
+  // Links the two account-side rows of one transfer (BOA out + Telebirr in).
+  transferGroupId   String?
+  // 'in' | 'out' for transfer rows that have no toAccountId. Incoming rows
+  // add to the account balance; outgoing rows subtract.
+  transferDirection String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   @@index([date])
   @@index([accountId])
   @@index([category])
+  @@index([transferGroupId])
 }
 
 model WishlistItem {

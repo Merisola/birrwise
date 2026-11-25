@@ -36,6 +36,9 @@ export interface CreateTransactionInput {
   icon?: string | null;
   note?: string | null;
   label?: string | null;
+  transferDirection?: 'in' | 'out' | null;
+  transferGroupId?: string | null;
+  externalRef?: string | null;
 }
 
 const includeRels = {
@@ -68,6 +71,7 @@ async function reverseApplyBalance(
     accountId: string;
     toAccountId: string | null;
     amount: number;
+    transferDirection?: string | null;
   },
   direction: 1 | -1
 ) {
@@ -83,6 +87,16 @@ async function reverseApplyBalance(
       data: { balance: { increment: amt } },
     });
   } else if (row.type === 'transfer') {
+    // Two-row transfers (BOA out + Telebirr in) carry a direction and no
+    // toAccountId. Legacy/manual transfers have a destination and are outgoing.
+    const incoming = row.transferDirection === 'in' && !row.toAccountId;
+    if (incoming) {
+      await tx.account.update({
+        where: { id: row.accountId },
+        data: { balance: { increment: amt } }, // receiving account gains funds
+      });
+      return;
+    }
     await tx.account.update({
       where: { id: row.accountId },
       data: { balance: { increment: -amt } }, // source loses funds
@@ -108,6 +122,9 @@ export async function createTransactionRecord(input: CreateTransactionInput) {
     icon,
     note,
     label,
+    transferDirection,
+    transferGroupId,
+    externalRef,
   } = input;
   let { category, type } = input;
 
@@ -170,6 +187,12 @@ export async function createTransactionRecord(input: CreateTransactionInput) {
         : DEFAULT_ICONS.expense),
     note: note || '',
     label: label ? String(label).trim().slice(0, 140) : null,
+    transferDirection:
+      type === 'transfer' && (transferDirection === 'in' || transferDirection === 'out')
+        ? transferDirection
+        : null,
+    transferGroupId: transferGroupId || null,
+    externalRef: externalRef || null,
   };
 
   return prisma.$transaction(async (tx) => {
@@ -192,6 +215,9 @@ export interface UpdateTransactionInput {
   icon?: string | null;
   note?: string | null;
   label?: string | null;
+  transferDirection?: 'in' | 'out' | null;
+  transferGroupId?: string | null;
+  externalRef?: string | null;
 }
 
 export async function updateTransactionRecord(
@@ -235,6 +261,10 @@ export async function updateTransactionRecord(
     throw new TransactionInputError('Amount must be a positive number');
   }
   const newType = patch.type ?? existing.type;
+  const newTransferDirection =
+    patch.transferDirection !== undefined
+      ? patch.transferDirection
+      : existing.transferDirection;
 
   const data: Prisma.TransactionUpdateInput = {
     ...(patch.date !== undefined && patch.date !== null
@@ -252,6 +282,13 @@ export async function updateTransactionRecord(
     ...(patch.icon !== undefined ? { icon: patch.icon || DEFAULT_ICONS.expense } : {}),
     ...(patch.type !== undefined && patch.type ? { type: patch.type } : {}),
     ...(patch.amount !== undefined ? { amount: newAmount } : {}),
+    ...(patch.transferDirection !== undefined
+      ? { transferDirection: patch.transferDirection }
+      : {}),
+    ...(patch.transferGroupId !== undefined
+      ? { transferGroupId: patch.transferGroupId }
+      : {}),
+    ...(patch.externalRef !== undefined ? { externalRef: patch.externalRef } : {}),
     ...(newSrcId !== existing.accountId
       ? { account: { connect: { id: newSrcId } } }
       : {}),
@@ -268,7 +305,8 @@ export async function updateTransactionRecord(
     newAmount !== existing.amount ||
     newType !== existing.type ||
     newSrcId !== existing.accountId ||
-    newDstId !== existing.toAccountId;
+    newDstId !== existing.toAccountId ||
+    newTransferDirection !== existing.transferDirection;
 
   return prisma.$transaction(async (tx) => {
     if (balanceChanged) {
@@ -280,6 +318,7 @@ export async function updateTransactionRecord(
           accountId: existing.accountId,
           toAccountId: existing.toAccountId,
           amount: existing.amount,
+          transferDirection: existing.transferDirection,
         },
         -1
       );
@@ -290,6 +329,7 @@ export async function updateTransactionRecord(
           accountId: newSrcId,
           toAccountId: newDstId,
           amount: newAmount,
+          transferDirection: newTransferDirection,
         },
         1
       );
@@ -312,6 +352,7 @@ export async function deleteTransactionRecord(id: string) {
         accountId: existing.accountId,
         toAccountId: existing.toAccountId,
         amount: existing.amount,
+        transferDirection: existing.transferDirection,
       },
       -1
     );

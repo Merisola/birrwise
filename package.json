@@ -16,6 +16,7 @@
     "db:push:local": "prisma db push --schema prisma/schema.sqlite.prisma",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:local": "prisma generate --schema prisma/schema.sqlite.prisma && tsx prisma/seed.ts",
+    "backfill:boa": "tsx scripts/backfill-boa-receipts.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {

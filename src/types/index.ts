@@ -27,6 +27,9 @@ export interface Transaction {
   icon: string;
   note?: string | null;
   label?: string | null; // user's own annotation, separate from the system note
+  externalRef?: string | null; // bank/wallet transaction reference
+  transferGroupId?: string | null; // links the two account-side rows of one transfer
+  transferDirection?: 'in' | 'out' | null;
   fresh?: boolean;
   createdAt?: string;
   updatedAt?: string;
